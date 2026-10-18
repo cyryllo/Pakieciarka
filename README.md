@@ -119,7 +119,13 @@ Opcje uruchomienia przydatne przy testach i zrzutach ekranu (wersja natywna):
 
 ## Licencja
 
-[MIT](LICENSE). Interfejs i PDF korzystają z czcionek dołączonych do egui (Ubuntu Font Licence, OFL).
+Copyright © 2026 Cyryl Sochacki
+
+Pakieciarka jest wolnym oprogramowaniem na licencji **[GNU GPL v3.0 lub nowszej](LICENSE)** (`GPL-3.0-or-later`).
+Możesz ją używać, kopiować, zmieniać i rozpowszechniać, ale każda rozpowszechniana wersja — także zmieniona
+i także udostępniana jako aplikacja www — musi pozostać otwarta, na tej samej licencji, razem z kodem źródłowym.
+
+Interfejs i PDF korzystają z czcionek dołączonych do egui (Ubuntu Font Licence, OFL).
 
 > Wyliczenia programu to pomoc projektowa — zawsze weryfikuj je z kartami katalogowymi ogniw, BMS i taśmy.
 > Pracuj z ogniwami litowymi ostrożnie; powyżej 60 V DC napięcie jest niebezpieczne.
