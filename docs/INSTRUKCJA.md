@@ -18,7 +18,7 @@ sterowanej przez FluidNC / GRBL.
 10. [Moje projekty — zapisywanie i otwieranie](#10-moje-projekty--zapisywanie-i-otwieranie)
 11. [Skróty klawiszowe i opcje uruchomienia](#11-skróty-klawiszowe-i-opcje-uruchomienia)
 12. [Gdzie program trzyma dane](#12-gdzie-program-trzyma-dane)
-13. [Bezpieczeństwo](#13-bezpieczeństwo)
+13. [Bezpieczeństwo i zastrzeżenia](#13-bezpieczeństwo-i-zastrzeżenia)
 14. [Najczęstsze pytania](#14-najczęstsze-pytania)
 
 ---
@@ -30,8 +30,8 @@ sterowanej przez FluidNC / GRBL.
 AppImage to jeden plik, który działa bez instalacji.
 
 ```sh
-chmod +x Pakieciarka-0.1.4-x86_64.AppImage
-./Pakieciarka-0.1.4-x86_64.AppImage
+chmod +x Pakieciarka-*-x86_64.AppImage
+./Pakieciarka-*-x86_64.AppImage
 ```
 
 Żeby program pojawił się w menu aplikacji (z ikoną), w katalogu z kodem źródłowym uruchom:
@@ -61,6 +61,13 @@ cargo run --release -p pakieciarka
 
 Szczegóły budowania są w [README](../README.md).
 
+### Pierwsze uruchomienie
+
+Przy pierwszym uruchomieniu program pokazuje okno **„Ważne — przeczytaj przed użyciem”** z zastrzeżeniami
+(wyniki są orientacyjne, program jest bez gwarancji, korzystasz na własną odpowiedzialność). Pracę można zacząć
+po kliknięciu **Rozumiem i akceptuję**. Treść jest potem zawsze dostępna pod przyciskiem **ℹ** na górnym pasku —
+patrz [rozdział 13](#13-bezpieczeństwo-i-zastrzeżenia).
+
 ---
 
 ## 2. Okno programu
@@ -69,10 +76,10 @@ Szczegóły budowania są w [README](../README.md).
 
 | Miejsce | Co zawiera |
 |---|---|
-| **Górny pasek** | nazwa projektu (z dopiskiem **• niezapisany**, gdy są zmiany), zakładki, podsumowanie pakietu (np. `13S5P · 46.8 V · 17.0 Ah · 796 Wh`), przycisk **Zapisz** (gdy są zmiany), menu **📁 Projekt**, wybór motywu (jasny / ciemny / systemowy) |
+| **Górny pasek** | nazwa projektu (z dopiskiem **• niezapisany**, gdy są zmiany), zakładki, podsumowanie pakietu (np. `13S5P · 46.8 V · 17.0 Ah · 796 Wh`), przycisk **Zapisz** (gdy są zmiany), menu **📁 Projekt**, **ℹ** — o programie i zastrzeżenia, wybór motywu (jasny / ciemny / systemowy) |
 | **Panel po lewej** | ogniwo, konfiguracja SxP, prąd obciążenia, układ ogniw i rodzaj taśmy — wspólne dla wszystkich zakładek |
 | **Środek** | zawartość wybranej zakładki |
-| **Pasek stanu (dół)** | komunikaty (np. „zapisano …”), numer wersji programu |
+| **Pasek stanu (dół)** | komunikaty (np. „zapisano …”), przypomnienie, że wartości są orientacyjne, numer wersji programu |
 
 Zakładki:
 
@@ -103,6 +110,8 @@ Program na bieżąco pamięta stan pracy — po zamknięciu i ponownym otwarciu 
 | **Odstęp ogniw** | szczelina między ogniwami (koszyki, separatory) [mm] — wpływa na wymiary, rysunek i G-code |
 | **Grupy w wierszach** | obraca układ o 90° (grupy poziomo zamiast pionowo) |
 | **Taśma do zgrzewania** | czysty nikiel, stal niklowana albo kanapka miedź + nikiel — wpływa na dobór grubości taśmy |
+| **Zgrzewarka zgrzewa do** | najgrubsza taśma, którą Twoja zgrzewarka pewnie zgrzewa (0,10–0,30 mm). Program nie zaproponuje grubszej — zamiast tego doda warstwy |
+| **Szerokość taśmy** | `auto` dobiera szerokość do ogniwa (18650 → 8 mm, 21700 → 10 mm), można wybrać 6–12 mm |
 | **Przywróć domyślne** | przywraca domyślne ustawienia (nazwa projektu zostaje) |
 
 ---
@@ -136,14 +145,37 @@ masa szacunkowa (+15% na nikiel, BMS, przewody, obudowę) i gęstość energii.
 | Ładowarka | napięcie S × U maks. ogniwa, tryb CC/CV |
 | Prąd ładowania | ≈ 0,3 C |
 | Bezpiecznik główny | jak prąd BMS |
-| Taśma (złącze szeregowe) | prąd jednego paska = prąd obciążenia ÷ liczba pasków na najsłabszym złączu szeregowym; dopuszczalna gęstość prądu: czysty nikiel 5 A/mm², stal niklowana 1,5 A/mm², miedź + nikiel 15 A/mm² |
-| Pasków na złączu (min.) | ile połączeń niklem dzieli prąd na najsłabszym złączu grup |
+| Nikiel szeregowo | skrót — szczegóły w karcie **Łączniki niklowe** poniżej |
 | Przewody główne | AWG z tabeli dla przewodu silikonowego, krótki odcinek |
 | Przewody balansera | 22–26 AWG |
 
+**🔗 Łączniki niklowe — jaka taśma**
+
+Karta mówi, jakiej grubości (i ile warstw) taśmy użyć dla każdego rodzaju połączenia — przy wybranym materiale,
+szerokości taśmy i możliwościach zgrzewarki (panel po lewej). Ta sama karta jest w zakładce *Układ i połączenia*.
+
+| Połączenie | Prąd na pasek | Dlaczego |
+|---|---|---|
+| **Szeregowe** (pomarańczowe na rysunku) | prąd obciążenia ÷ liczba pasków na najsłabszym złączu grup | przez złącza szeregowe płynie cały prąd pakietu, dzielony na paski między grupami |
+| **Równoległe** (szare) | prąd jednego ogniwa (prąd obciążenia ÷ P) | w pracy wyrównują prąd w grupie; projektowane na prąd ogniwa na wypadek nierównych ogniw albo słabszego zgrzewu |
+| **Bieguny B+ / B−** | połowa prądu obciążenia | blaszka zbiera cały prąd do przewodu głównego — przy przewodzie przylutowanym w środku blaszki płynie po połowie w każdą stronę |
+
+Dla każdego połączenia program podaje taśmę, np. `0.15 × 8 mm` albo `2 warstwy × 0.20 × 8 mm`, i jej dopuszczalny
+prąd. Dobór: najpierw jedna warstwa najcieńszej wystarczającej taśmy, a gdy przekroczyłaby możliwości zgrzewarki —
+kilka warstw. Dopuszczalna gęstość prądu (reguła kciuka): czysty nikiel 5 A/mm², stal niklowana 1,5 A/mm²,
+miedź + nikiel 15 A/mm². Czerwona wartość oznacza, że nawet 4 warstwy nie wystarczą.
+
+Pod tabelą: spadek napięcia na jednym pasku złącza szeregowego i straty ciepła we wszystkich złączach
+szeregowych (liczone dla odcinka między środkami ogniw).
+
+> Warstwy taśmy układaj jedna na drugiej i zgrzewaj razem albo kolejno. Stal niklowaną rozpoznasz magnesem
+> (przyciąga mocno) i po szlifowaniu (rdzewieje) — nie nadaje się do większych prądów.
+
 **Ostrzeżenia** (żółte ramki) pojawiają się, gdy: obciążenie przekracza prąd maksymalny pakietu, obciążenie jest
 większe niż 3 C, spadek napięcia przekracza 10%, wybrano stal niklowaną, napięcie maksymalne przekracza 60 V DC,
-albo złącze szeregowe ma za mało pasków niklu (układ z wysokością kolumny ≠ P).
+złącze szeregowe ma za mało pasków niklu (układ z wysokością kolumny ≠ P), taśma w zasięgu zgrzewarki nie przeniesie
+prądu złącza szeregowego, albo bieguny B+/B− wymagają więcej niż 2 warstw (wtedy lepiej przylutować przewód wzdłuż
+blaszki albo użyć miedzianej szyny).
 
 > Dobór taśmy, przewodów i masy to reguły kciuka. Zawsze sprawdź karty katalogowe ogniw, BMS i taśmy.
 
@@ -192,6 +224,7 @@ grupy względem B−.
 
 ### Pod rysunkiem
 
+- **🔗 Łączniki niklowe** — ta sama karta co w Kalkulatorze: jaka taśma na złącza szeregowe, równoległe i bieguny.
 - **🔌 Odczepy balansera** — tabela B0…BS: strona pakietu, napięcie nominalne i po naładowaniu (narastająco od B−).
   Przed podłączeniem BMS zmierz miernikiem napięcia kolejnych odczepów względem B− i porównaj z tabelą.
 - **🛠 Kolejność montażu** — skrócona instrukcja składania pakietu.
@@ -204,8 +237,10 @@ Przycisk **🖶 PDF do druku…** w zakładce *Układ i połączenia* tworzy dok
 
 1. **GÓRA** — rysunek połączeń,
 2. **DÓŁ** — rysunek po obróceniu (z opisem, jak obrócić pakiet),
-3. **Dane pakietu i lista kontrolna** — parametry, dobór osprzętu, tabela odczepów balansera i lista blaszek
-   do odhaczania.
+3. **Dane pakietu i lista kontrolna** — parametry, dobór osprzętu (osobno nikiel szeregowo, równolegle i na
+   bieguny), tabela odczepów balansera i lista blaszek do odhaczania — przy każdej blaszce jest podana taśma.
+
+Na dole każdej strony jest krótkie zastrzeżenie (wartości orientacyjne, bez gwarancji).
 
 ![PDF — strona z górą pakietu w skali 1:1](img/10-pdf-gora.png)
 
@@ -217,8 +252,8 @@ Przycisk **🖶 PDF do druku…** w zakładce *Układ i połączenia* tworzy dok
 
 ![PDF — dane pakietu i lista kontrolna blaszek](img/11-pdf-lista.png)
 
-Lista kontrolna wypisuje każdą blaszkę, np. `☐ B3 — szeregowo: G3 [9–12] + G4 [13–16]` — które grupy łączy
-i które ogniwa (numery) obejmuje. Przy ręcznym zgrzewaniu odhaczaj kolejne blaszki.
+Lista kontrolna wypisuje każdą blaszkę, np. `☐ B3 — szeregowo: G3 [9–12] + G4 [13–16] · nikiel 0.15 × 8 mm` —
+które grupy łączy, które ogniwa (numery) obejmuje i jaką taśmą ją zgrzać. Przy ręcznym zgrzewaniu odhaczaj kolejne blaszki.
 
 W wersji natywnej PDF po zapisaniu otwiera się od razu w domyślnej przeglądarce PDF (stąd drukujesz);
 w wersji www plik jest pobierany.
@@ -321,6 +356,7 @@ Punkty widać na rysunku w zakładce *Układ* po zaznaczeniu „punkty zgrzewów
 
 ```gcode
 ; Pakieciarka — 5S2P, strona: Góra
+; UWAGA: program wygenerowany automatycznie, bez gwarancji poprawności. (…)
 G21 ; mm
 G90 ; współrzędne absolutne
 G0 Z5
@@ -432,7 +468,7 @@ Jeśli ustawiona jest zmienna `XDG_DATA_HOME`, katalog jest w `$XDG_DATA_HOME/pa
 
 ---
 
-## 13. Bezpieczeństwo
+## 13. Bezpieczeństwo i zastrzeżenia
 
 - Ogniwa litowe zwarte niklem lub narzędziem mogą się zapalić. Pracuj na niepalnym podłożu, miej pod ręką koc
   gaśniczy / piasek, izoluj bieguny, których akurat nie zgrzewasz.
@@ -442,6 +478,29 @@ Jeśli ustawiona jest zmienna `XDG_DATA_HOME`, katalog jest w `$XDG_DATA_HOME/pa
 - Bezpiecznik główny montuj na B+, możliwie blisko pakietu.
 - Wygenerowany G-code uruchamiaj najpierw w **trybie próbnym**, bez ogniw.
 - Wyliczenia programu to pomoc projektowa, nie gwarancja — weryfikuj je z kartami katalogowymi.
+
+### Zastrzeżenia
+
+Tę treść program pokazuje przy pierwszym uruchomieniu (do akceptacji) i pod przyciskiem **ℹ**; skrót jest na pasku
+stanu, w stopce PDF i w nagłówku G-code.
+
+![Okno zastrzeżeń przy pierwszym uruchomieniu](img/12-zastrzezenia.png)
+
+> Pakieciarka jest narzędziem pomocniczym. Wszystkie wartości — napięcia, prądy, spadki i straty, dobór taśmy
+> niklowej, przewodów, BMS, ładowarki i bezpieczników, masy i wymiary — są wyliczane z uproszczonych modeli, reguł
+> kciuka i danych katalogowych, które mogą być nieaktualne lub błędne. Rysunki połączeń, wydruki PDF i wygenerowany
+> G-code również mogą zawierać błędy.
+>
+> Budowa, zgrzewanie, ładowanie i użytkowanie akumulatorów litowych wiąże się z ryzykiem pożaru, wybuchu, porażenia
+> prądem, poparzeń i uszkodzenia mienia. Napięcie powyżej 60 V DC jest niebezpieczne dla życia.
+>
+> Ty odpowiadasz za sprawdzenie wyników z kartami katalogowymi ogniw, BMS i taśmy oraz z obowiązującymi przepisami,
+> za bezpieczeństwo pracy, za sprawdzenie G-code w trybie próbnym przed zgrzewaniem i za zbudowane urządzenie.
+>
+> Program jest dostarczany „tak jak jest”, bez jakiejkolwiek gwarancji, także dorozumianej gwarancji przydatności
+> do określonego celu (licencja GNU GPL v3, pkt 15 i 16). Autor i współtwórcy programu nie ponoszą odpowiedzialności
+> za jakiekolwiek szkody wynikłe z użycia programu, jego wyników albo pakietów i urządzeń zbudowanych na ich
+> podstawie. Korzystasz z programu na własną odpowiedzialność.
 
 ---
 

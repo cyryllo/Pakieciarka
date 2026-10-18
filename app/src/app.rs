@@ -3,8 +3,12 @@ use crate::library::{CellEdit, Pending};
 use crate::platform::{self, Inbox};
 use crate::store::{self, SavedProject};
 use egui::{Color32, RichText, Ui};
-use pakiet_core::calc::{pack_stats, presets, recommendations, PackStats, Recommendations, StripMaterial};
+use pakiet_core::calc::{
+    auto_strip_width, pack_stats, presets, recommendations, PackStats, Recommendations, StripMaterial, StripPlan, StripSettings,
+    STRIP_THICKNESSES, STRIP_WIDTHS,
+};
 use pakiet_core::cells::{builtin_cells, format_dims, Cell, Chemistry};
+use pakiet_core::disclaimer;
 use pakiet_core::gcode::{generate, Flip, GcodeOutput, GcodeSettings, Order, Trigger};
 use pakiet_core::layout::{build_layout, weld_spots, Arrangement, Layout, LayoutParams, Side};
 use pakiet_core::modules::ModulePlan;
@@ -24,9 +28,19 @@ pub struct Project {
     pub load_a: f64,
     pub layout: LayoutParams,
     pub strip: StripMaterial,
+    /// Największa grubość taśmy, którą zgrzewa zgrzewarka [mm]
+    pub strip_max_t_mm: f64,
+    /// Szerokość taśmy [mm]; 0 = automatycznie wg ogniwa
+    pub strip_width_mm: f64,
     pub mod_series: usize,
     pub mod_parallel: usize,
     pub gcode: GcodeSettings,
+}
+
+impl Project {
+    pub fn strip_settings(&self) -> StripSettings {
+        StripSettings { material: self.strip, max_thickness_mm: self.strip_max_t_mm, width_mm: self.strip_width_mm }
+    }
 }
 
 impl Default for Project {
@@ -39,6 +53,8 @@ impl Default for Project {
             load_a: 20.0,
             layout: LayoutParams::default(),
             strip: StripMaterial::PureNickel,
+            strip_max_t_mm: 0.2,
+            strip_width_mm: 0.0,
             mod_series: 2,
             mod_parallel: 1,
             gcode: GcodeSettings::default(),
@@ -73,6 +89,8 @@ struct ViewOpts {
     gcode_file: String,
     /// Id projektu w bibliotece, który jest otwarty
     current_id: Option<String>,
+    /// Wersja zaakceptowanych zastrzeżeń (0 = nie zaakceptowano)
+    disclaimer_ok: u32,
 }
 
 impl Default for ViewOpts {
@@ -85,6 +103,7 @@ impl Default for ViewOpts {
             numbers: true,
             gcode_file: "pakiet".into(),
             current_id: None,
+            disclaimer_ok: 0,
         }
     }
 }
@@ -120,6 +139,7 @@ pub struct PakieciarkaApp {
     pub(crate) cell_delete_armed: Option<usize>,
     pub(crate) inbox: Inbox,
     pub(crate) last_title: String,
+    about_window: bool,
     frame_no: u64,
 }
 
@@ -219,6 +239,7 @@ impl PakieciarkaApp {
             cell_delete_armed: None,
             inbox,
             last_title: String::new(),
+            about_window: false,
             frame_no: 0,
         }
     }
@@ -263,6 +284,44 @@ impl PakieciarkaApp {
         }
     }
 
+    /// Zastrzeżenia: akceptacja przy pierwszym uruchomieniu i okno „O programie”.
+    fn disclaimer_windows(&mut self, ctx: &egui::Context) {
+        let paragraphs = |ui: &mut Ui| {
+            for p in disclaimer::FULL.split("\n\n") {
+                ui.label(p);
+                ui.add_space(4.0);
+            }
+        };
+        if self.view.disclaimer_ok < disclaimer::VERSION {
+            egui::Modal::new(egui::Id::unique("pakieciarka_disclaimer")).show(ctx, |ui| {
+                ui.set_width(560.0);
+                ui.heading(format!("⚠ {}", disclaimer::TITLE));
+                ui.add_space(6.0);
+                egui::ScrollArea::vertical().max_height(380.0).show(ui, paragraphs);
+                ui.add_space(6.0);
+                if ui.button(RichText::new("Rozumiem i akceptuję").strong()).clicked() {
+                    self.view.disclaimer_ok = disclaimer::VERSION;
+                }
+                ui.label(RichText::new("Treść jest zawsze dostępna pod przyciskiem ℹ na górnym pasku.").small().weak());
+            });
+        }
+        let mut open = self.about_window;
+        egui::Window::new("ℹ O programie").open(&mut open).default_width(560.0).collapsible(false).show(ctx, |ui| {
+            ui.heading(format!("Pakieciarka {}", env!("CARGO_PKG_VERSION")));
+            ui.label("Konfigurator pakietów akumulatorów z rysunkami połączeń, drukiem PDF i generatorem G-code dla zgrzewarki.");
+            ui.horizontal(|ui| {
+                ui.label("Kod źródłowy:");
+                ui.hyperlink("https://github.com/cyryllo/Pakieciarka");
+            });
+            ui.label("Copyright © 2026 Cyryl Sochacki · licencja GNU GPL v3.0 lub nowsza");
+            ui.separator();
+            ui.strong(disclaimer::TITLE);
+            ui.add_space(4.0);
+            egui::ScrollArea::vertical().max_height(360.0).show(ui, paragraphs);
+        });
+        self.about_window = open;
+    }
+
     fn save_file(&mut self, name: &str, content: &str, filter: (&str, &[&str])) {
         match platform::save_file(name, content, filter) {
             Ok(Some(m)) => self.status = format!("✔ {m}"),
@@ -286,7 +345,7 @@ impl eframe::App for PakieciarkaApp {
         self.debug_screenshot(ui.ctx());
         let layout = self.layout();
         let stats = pack_stats(&self.project.cell, self.project.s, self.project.p, self.project.load_a);
-        let rec = recommendations(&self.project.cell, &stats, self.project.strip, layout.min_series_links);
+        let rec = recommendations(&self.project.cell, &stats, &self.project.strip_settings(), layout.min_series_links, layout.pitch);
 
         egui::Panel::top("top").show(ui, |ui| self.top_bar(ui, &stats));
         egui::Panel::bottom("status").show(ui, |ui| {
@@ -294,6 +353,9 @@ impl eframe::App for PakieciarkaApp {
                 ui.label(RichText::new(&self.status).small());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(RichText::new(format!("Pakieciarka {}", env!("CARGO_PKG_VERSION"))).small().weak());
+                    ui.separator();
+                    ui.label(RichText::new("Wartości orientacyjne — korzystasz na własną odpowiedzialność").small().weak())
+                        .on_hover_text(disclaimer::SHORT);
                 });
             });
         });
@@ -318,6 +380,7 @@ impl eframe::App for PakieciarkaApp {
 
         self.json_window(ui);
         self.library_windows(&ui.ctx().clone());
+        self.disclaimer_windows(&ui.ctx().clone());
     }
 }
 
@@ -347,6 +410,9 @@ impl PakieciarkaApp {
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 egui::widgets::global_theme_preference_buttons(ui);
+                if ui.button("ℹ").on_hover_text("O programie i zastrzeżenia").clicked() {
+                    self.about_window = true;
+                }
                 if self.dirty() && ui.button("💾 Zapisz").on_hover_text("Ctrl+S").clicked() {
                     self.save_current();
                 }
@@ -468,6 +534,28 @@ impl PakieciarkaApp {
                     ui.selectable_value(&mut pr.strip, m, m.label());
                 }
             });
+        egui::Grid::new("strip_opts").num_columns(2).show(ui, |ui| {
+            ui.label("Zgrzewarka zgrzewa do:")
+                .on_hover_text("Najgrubsza taśma, którą Twoja zgrzewarka pewnie zgrzewa. Gdy potrzeba więcej, program zaproponuje kilka warstw.");
+            egui::ComboBox::from_id_salt("strip_max_t")
+                .selected_text(format!("{:.2} mm", pr.strip_max_t_mm))
+                .show_ui(ui, |ui| {
+                    for t in STRIP_THICKNESSES {
+                        ui.selectable_value(&mut pr.strip_max_t_mm, t, format!("{t:.2} mm"));
+                    }
+                });
+            ui.end_row();
+            ui.label("Szerokość taśmy:");
+            let auto = auto_strip_width(pr.cell.diameter_mm);
+            let txt = |w: f64| if w == 0.0 { format!("auto ({auto:.0} mm)") } else { format!("{w:.0} mm") };
+            egui::ComboBox::from_id_salt("strip_w").selected_text(txt(pr.strip_width_mm)).show_ui(ui, |ui| {
+                ui.selectable_value(&mut pr.strip_width_mm, 0.0, txt(0.0));
+                for w in STRIP_WIDTHS {
+                    ui.selectable_value(&mut pr.strip_width_mm, w, txt(w));
+                }
+            });
+            ui.end_row();
+        });
 
         ui.add_space(10.0);
         if ui.button("↺ Przywróć domyślne").clicked() {
@@ -535,31 +623,26 @@ impl PakieciarkaApp {
                 ]);
             });
             card(&mut cols[1], "🔩 Dobór osprzętu", |ui| {
-                let s = &rec.strip;
+                let s = &rec.strip.series;
                 let (awg, mm2, amp) = rec.main_wire;
                 kv_grid(ui, "rec", &[
                     ("BMS", rec.bms.clone()),
                     ("Ładowarka", rec.charger.clone()),
                     ("Prąd ładowania (≈0,3C)", format!("{:.1} A", rec.charge_current_a)),
                     ("Bezpiecznik główny", format!("{:.0} A", rec.fuse_a)),
-                    (
-                        "Taśma (złącze szeregowe)",
-                        format!(
-                            "{}× {:.2}×{:.0} mm — {:.1} A/pasek (≈{:.1} A potrzebne)",
-                            s.layers, s.thickness_mm, s.width_mm, s.rating_a, rec.strip_link_current_a
-                        ),
-                    ),
-                    ("Pasków na złączu (min.)", format!("{}", layout.min_series_links)),
+                    ("Nikiel szeregowo", format!("{} (szczegóły niżej)", s.label())),
                     ("Przewody główne", format!("{awg} AWG ({mm2} mm², ~{amp:.0} A)")),
                     ("Przewody balansera", rec.balance_wire.to_string()),
                 ]);
             });
         });
 
+        strip_card(ui, &rec.strip);
+
         ui.add_space(4.0);
         ui.label(
             RichText::new(
-                "Dobór taśmy, przewodów i masy to reguły kciuka. Zawsze sprawdź karty katalogowe ogniw, BMS i taśmy.",
+                "Dobór taśmy, przewodów, BMS i masy to reguły kciuka — wyniki są orientacyjne. Zawsze sprawdź karty katalogowe ogniw, BMS i taśmy. Korzystasz na własną odpowiedzialność (ℹ na górnym pasku).",
             )
             .small()
             .weak(),
@@ -659,6 +742,8 @@ impl PakieciarkaApp {
         }
 
         ui.add_space(8.0);
+        let rec = recommendations(&self.project.cell, st, &self.project.strip_settings(), layout.min_series_links, layout.pitch);
+        strip_card(ui, &rec.strip);
         ui.columns(2, |cols| {
             card(&mut cols[0], "🔌 Odczepy balansera", |ui| {
                 let cell = &self.project.cell;
@@ -866,6 +951,62 @@ fn card(ui: &mut Ui, title: &str, add: impl FnOnce(&mut Ui)) {
         add(ui);
     });
     ui.add_space(6.0);
+}
+
+/// Karta „Łączniki niklowe” — grubość i liczba warstw taśmy dla każdego rodzaju połączenia.
+pub(crate) fn strip_card(ui: &mut Ui, plan: &StripPlan) {
+    card(ui, "🔗 Łączniki niklowe — jaka taśma", |ui| {
+        let red = Color32::from_rgb(220, 70, 60);
+        egui::Grid::new("strips").striped(true).num_columns(5).spacing([18.0, 5.0]).show(ui, |ui| {
+            for h in ["Połączenie", "Prąd na pasek", "Taśma", "Dopuszczalny prąd", "Uwagi"] {
+                ui.strong(h);
+            }
+            ui.end_row();
+            let rows = [
+                (
+                    "Szeregowe (pomarańczowe)",
+                    &plan.series,
+                    plan.series_current_a,
+                    format!("{} pask. na najsłabszym złączu — pełny prąd pakietu", plan.series_links),
+                ),
+                ("Równoległe (szare)", &plan.parallel, plan.parallel_current_a, "wyrównują prąd w grupie (≈ prąd 1 ogniwa)".to_string()),
+                (
+                    "Bieguny B+ / B−",
+                    &plan.terminal,
+                    plan.terminal_current_a,
+                    "przewód główny w środku blaszki — połowa prądu w każdą stronę".to_string(),
+                ),
+            ];
+            for (name, c, current, note) in rows {
+                ui.label(name);
+                ui.label(format!("{current:.1} A"));
+                let t = RichText::new(c.label()).strong();
+                ui.label(if c.ok { t } else { t.color(red) });
+                ui.label(format!("{:.1} A", c.rating_a));
+                ui.label(RichText::new(note).small());
+                ui.end_row();
+            }
+        });
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(format!(
+                "{} · szerokość {:.0} mm · zgrzewarka do {:.2} mm · spadek na pasku złącza {:.0} mV · straty we wszystkich złączach szeregowych {:.1} W",
+                plan.material.label(),
+                plan.width_mm,
+                plan.max_thickness_mm,
+                plan.series_drop_mv,
+                plan.series_loss_w
+            ))
+            .small(),
+        );
+        ui.label(
+            RichText::new(
+                "Warstwy taśmy układaj jedna na drugiej i zgrzewaj razem (albo kolejno). Dopuszczalny prąd: czysty nikiel 5 A/mm², stal niklowana 1,5 A/mm², miedź+nikiel 15 A/mm² — reguły kciuka. Stal niklowaną rozpoznasz magnesem (przyciąga mocno) i szlifowaniem (rdzewieje).",
+            )
+            .small()
+            .weak(),
+        );
+    });
 }
 
 fn kv_grid(ui: &mut Ui, id: &str, rows: &[(&str, String)]) {

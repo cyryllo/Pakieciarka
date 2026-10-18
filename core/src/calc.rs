@@ -126,38 +126,130 @@ impl StripMaterial {
     }
 }
 
+/// Grubości taśmy dostępne w handlu [mm].
+pub const STRIP_THICKNESSES: [f64; 6] = [0.10, 0.12, 0.15, 0.20, 0.25, 0.30];
+/// Szerokości taśmy dostępne w handlu [mm].
+pub const STRIP_WIDTHS: [f64; 5] = [6.0, 7.0, 8.0, 10.0, 12.0];
+
+impl StripMaterial {
+    /// Rezystywność [Ω·mm²/m]. Dla kanapki Cu+Ni liczona warstwa miedzi o podanej grubości.
+    pub fn resistivity(self) -> f64 {
+        match self {
+            StripMaterial::PureNickel => 0.0699,
+            StripMaterial::NickelPlatedSteel => 0.13,
+            StripMaterial::CopperNickel => 0.0172,
+        }
+    }
+}
+
+/// Typowa szerokość taśmy dla średnicy ogniwa (taśma mieści się na biegunie i między ogniwami).
+pub fn auto_strip_width(cell_diameter_mm: f64) -> f64 {
+    match cell_diameter_mm {
+        d if d < 16.0 => 6.0,
+        d if d < 20.0 => 8.0,
+        d if d < 24.0 => 10.0,
+        _ => 12.0,
+    }
+}
+
+/// Ustawienia taśmy wybrane przez użytkownika.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StripSettings {
+    pub material: StripMaterial,
+    /// Największa grubość, którą zgrzewa zgrzewarka [mm]
+    pub max_thickness_mm: f64,
+    /// Szerokość taśmy [mm]; 0 = automatycznie wg średnicy ogniwa
+    pub width_mm: f64,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct StripChoice {
     pub thickness_mm: f64,
     pub width_mm: f64,
     pub layers: usize,
+    /// Dopuszczalny prąd paska (wszystkie warstwy) [A]
     pub rating_a: f64,
+    /// false = nawet 4 warstwy najgrubszej dozwolonej taśmy nie wystarczą
+    pub ok: bool,
 }
 
-/// Dobiera taśmę dla jednego połączenia szeregowego (między dwoma sąsiednimi ogniwami
-/// różnych grup), przez które płynie `current_a`.
-pub fn recommend_strip(material: StripMaterial, current_a: f64) -> StripChoice {
-    const SIZES: [(f64, f64); 8] = [
-        (0.10, 7.0),
-        (0.12, 8.0),
-        (0.15, 8.0),
-        (0.20, 8.0),
-        (0.15, 10.0),
-        (0.20, 10.0),
-        (0.25, 10.0),
-        (0.30, 10.0),
-    ];
+impl StripChoice {
+    pub fn label(&self) -> String {
+        let layers = if self.layers > 1 { format!("{} warstwy × ", self.layers) } else { String::new() };
+        format!("{layers}{:.2} × {:.0} mm", self.thickness_mm, self.width_mm)
+    }
+}
+
+/// Dobiera taśmę (grubość i liczbę warstw) dla prądu `current_a` płynącego jednym paskiem.
+/// Preferuje jedną warstwę; grubość nie przekracza możliwości zgrzewarki.
+pub fn recommend_strip(material: StripMaterial, current_a: f64, width_mm: f64, max_thickness_mm: f64) -> StripChoice {
     let j = material.current_density();
+    let allowed: Vec<f64> = STRIP_THICKNESSES.iter().copied().filter(|&t| t <= max_thickness_mm + 1e-9).collect();
+    let allowed = if allowed.is_empty() { vec![STRIP_THICKNESSES[0]] } else { allowed };
     for layers in 1..=4 {
-        for &(t, w) in SIZES.iter() {
-            let rating = t * w * j * layers as f64;
+        for &t in &allowed {
+            let rating = t * width_mm * j * layers as f64;
             if rating >= current_a {
-                return StripChoice { thickness_mm: t, width_mm: w, layers, rating_a: rating };
+                return StripChoice { thickness_mm: t, width_mm, layers, rating_a: rating, ok: true };
             }
         }
     }
-    let (t, w) = SIZES[SIZES.len() - 1];
-    StripChoice { thickness_mm: t, width_mm: w, layers: 4, rating_a: t * w * j * 4.0 }
+    let t = *allowed.last().unwrap();
+    StripChoice { thickness_mm: t, width_mm, layers: 4, rating_a: t * width_mm * j * 4.0, ok: false }
+}
+
+/// Komplet łączników niklowych pakietu.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StripPlan {
+    pub material: StripMaterial,
+    pub width_mm: f64,
+    pub max_thickness_mm: f64,
+    /// Połączenia szeregowe (między grupami) — pełny prąd dzielony na paski złącza
+    pub series: StripChoice,
+    pub series_current_a: f64,
+    /// Paski na najsłabszym złączu szeregowym
+    pub series_links: usize,
+    /// Połączenia równoległe (w grupie) — wyrównywanie, projektowane na prąd jednego ogniwa
+    pub parallel: StripChoice,
+    pub parallel_current_a: f64,
+    /// Blaszki biegunów B+ / B− — zbierają cały prąd do przewodu przylutowanego w środku blaszki
+    pub terminal: StripChoice,
+    pub terminal_current_a: f64,
+    /// Spadek napięcia na jednym pasku złącza szeregowego [mV]
+    pub series_drop_mv: f64,
+    /// Straty ciepła we wszystkich złączach szeregowych [W]
+    pub series_loss_w: f64,
+}
+
+pub fn strip_plan(set: &StripSettings, st: &PackStats, min_series_links: usize, cell_diameter_mm: f64, pitch_mm: f64) -> StripPlan {
+    let width = if set.width_mm > 0.0 { set.width_mm } else { auto_strip_width(cell_diameter_mm) };
+    let load = st.load_a.max(1.0);
+    let links = min_series_links.max(1);
+    let series_current_a = load / links as f64;
+    let parallel_current_a = (load / st.p.max(1) as f64).max(1.0);
+    let terminal_current_a = load / 2.0;
+    let series = recommend_strip(set.material, series_current_a, width, set.max_thickness_mm);
+    let parallel = recommend_strip(set.material, parallel_current_a, width, set.max_thickness_mm);
+    let terminal = recommend_strip(set.material, terminal_current_a, width, set.max_thickness_mm);
+    // rezystancja paska między środkami sąsiednich ogniw
+    let area = series.thickness_mm * series.width_mm * series.layers as f64;
+    let r_link = set.material.resistivity() * (pitch_mm / 1000.0) / area;
+    let series_drop_mv = series_current_a * r_link * 1000.0;
+    let series_loss_w = st.s.saturating_sub(1) as f64 * links as f64 * series_current_a.powi(2) * r_link;
+    StripPlan {
+        material: set.material,
+        width_mm: width,
+        max_thickness_mm: set.max_thickness_mm,
+        series,
+        series_current_a,
+        series_links: links,
+        parallel,
+        parallel_current_a,
+        terminal,
+        terminal_current_a,
+        series_drop_mv,
+        series_loss_w,
+    }
 }
 
 /// Przekrój przewodu (AWG, mm², dopuszczalny prąd ciągły dla przewodu silikonowego, krótki odcinek).
@@ -189,8 +281,7 @@ pub struct Recommendations {
     pub charger: String,
     pub charge_current_a: f64,
     pub fuse_a: f64,
-    pub strip: StripChoice,
-    pub strip_link_current_a: f64,
+    pub strip: StripPlan,
     pub main_wire: (u32, f64, f64),
     pub balance_wire: &'static str,
     pub warnings: Vec<String>,
@@ -198,17 +289,19 @@ pub struct Recommendations {
 
 /// `min_series_links` — najmniejsza liczba połączeń między sąsiednimi grupami w układzie
 /// (ile pasków niklu dzieli prąd na złączu szeregowym).
+/// `pitch_mm` — rozstaw środków ogniw (długość paska między ogniwami).
 pub fn recommendations(
     cell: &Cell,
     st: &PackStats,
-    material: StripMaterial,
+    strip: &StripSettings,
     min_series_links: usize,
+    pitch_mm: f64,
 ) -> Recommendations {
+    let material = strip.material;
+    let plan = strip_plan(strip, st, min_series_links, cell.diameter_mm, pitch_mm);
     let design_a = st.load_a.max(1.0);
     let bms_a = (design_a * 1.25 / 5.0).ceil() * 5.0;
     let charge_current_a = ((st.capacity_ah * 0.3) * 2.0).round() / 2.0;
-    let links = min_series_links.max(1) as f64;
-    let strip_link_current_a = design_a / links;
     let mut warnings = Vec::new();
 
     if !st.load_ok {
@@ -234,6 +327,18 @@ pub fn recommendations(
             "Stal niklowana ma ~4× większą rezystancję niż czysty nikiel — nadaje się tylko do małych prądów."
                 .into(),
         );
+    }
+    if !plan.series.ok {
+        warnings.push(format!(
+            "Złącze szeregowe: {:.1} A na pasek to za dużo dla taśmy do {:.2} mm (nawet 4 warstwy) — użyj kanapki miedź + nikiel, zgrzewarki do grubszej taśmy albo zwiększ P.",
+            plan.series_current_a, plan.max_thickness_mm
+        ));
+    }
+    if !plan.terminal.ok || plan.terminal.layers > 2 {
+        warnings.push(format!(
+            "Bieguny B+/B−: {:.0} A — zamiast wielu warstw niklu przylutuj przewód główny wzdłuż blaszki albo użyj miedzianej szyny.",
+            plan.terminal_current_a
+        ));
     }
     if st.v_max > 60.0 {
         warnings.push(format!(
@@ -261,8 +366,7 @@ pub fn recommendations(
         ),
         charge_current_a: charge_current_a.max(0.5),
         fuse_a: bms_a,
-        strip: recommend_strip(material, strip_link_current_a),
-        strip_link_current_a,
+        strip: plan,
         main_wire: recommend_wire(design_a),
         balance_wire: "22–26 AWG (silikon)",
         warnings,
@@ -292,10 +396,34 @@ mod tests {
 
     #[test]
     fn strip_grows_with_current() {
-        let a = recommend_strip(StripMaterial::PureNickel, 3.0);
-        let b = recommend_strip(StripMaterial::PureNickel, 20.0);
-        assert!(a.rating_a >= 3.0);
-        assert!(b.rating_a >= 20.0);
+        let a = recommend_strip(StripMaterial::PureNickel, 3.0, 8.0, 0.3);
+        let b = recommend_strip(StripMaterial::PureNickel, 20.0, 8.0, 0.3);
+        assert!(a.ok && a.rating_a >= 3.0);
+        assert!(b.ok && b.rating_a >= 20.0);
         assert!(b.thickness_mm * b.width_mm * b.layers as f64 > a.thickness_mm * a.width_mm);
+    }
+
+    #[test]
+    fn strip_respects_welder_limit() {
+        // 10 A na pasek 8 mm czystego niklu (5 A/mm²): 1 × 0.25 mm albo 2 × 0.15 przy zgrzewarce do 0.15 mm
+        let one = recommend_strip(StripMaterial::PureNickel, 10.0, 8.0, 0.3);
+        assert_eq!((one.thickness_mm, one.layers), (0.25, 1));
+        let two = recommend_strip(StripMaterial::PureNickel, 10.0, 8.0, 0.15);
+        assert_eq!((two.thickness_mm, two.layers), (0.15, 2));
+        assert!(two.ok);
+        let too_much = recommend_strip(StripMaterial::PureNickel, 100.0, 8.0, 0.1);
+        assert!(!too_much.ok);
+    }
+
+    #[test]
+    fn plan_currents() {
+        let cell = builtin_cells().into_iter().find(|c| c.name.contains("30Q")).unwrap();
+        let st = pack_stats(&cell, 10, 4, 20.0);
+        let set = StripSettings { material: StripMaterial::PureNickel, max_thickness_mm: 0.2, width_mm: 0.0 };
+        let p = strip_plan(&set, &st, 4, cell.diameter_mm, 19.4);
+        assert_eq!(p.width_mm, 8.0);
+        assert!((p.series_current_a - 5.0).abs() < 1e-9);
+        assert!((p.terminal_current_a - 10.0).abs() < 1e-9);
+        assert!(p.series_drop_mv > 0.0 && p.series_loss_w > 0.0);
     }
 }

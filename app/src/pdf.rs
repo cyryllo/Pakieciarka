@@ -442,6 +442,7 @@ pub fn layout_pdf(project: &Project, layout: &Layout, opts: &PdfOptions) -> Vec<
         d.text(PAGE_W - MARGIN, 14.0, &format!("Strona {}/{}", i + 1, n), 9.0, GRAY, Align::Right, false);
         d.text(PAGE_W - MARGIN, 21.0, &format!("Pakieciarka {} · {date}", env!("CARGO_PKG_VERSION")), 7.5, GRAY, Align::Right, false);
         d.line((MARGIN, 25.0), (PAGE_W - MARGIN, 25.0), 0.25, LIGHT);
+        d.text(MARGIN, PAGE_H - 4.5, pakiet_core::disclaimer::SHORT, 6.0, GRAY, Align::Left, false);
         d.pages.swap(i, n - 1);
     }
 
@@ -451,7 +452,7 @@ pub fn layout_pdf(project: &Project, layout: &Layout, opts: &PdfOptions) -> Vec<
 fn info_pages(d: &mut Doc, project: &Project, layout: &Layout) {
     let cell = &project.cell;
     let st = pack_stats(cell, project.s, project.p, project.load_a);
-    let rec = recommendations(cell, &st, project.strip, layout.min_series_links);
+    let rec = recommendations(cell, &st, &project.strip_settings(), layout.min_series_links, layout.pitch);
     d.page();
     d.text(MARGIN, 32.0, "Dane pakietu i lista kontrolna zgrzewania", 11.0, BLACK, Align::Left, true);
 
@@ -468,7 +469,7 @@ fn info_pages(d: &mut Doc, project: &Project, layout: &Layout) {
         }
         *y += 4.6;
     };
-    let s = &rec.strip;
+    let sp = &rec.strip;
     let (awg, mm2, _) = rec.main_wire;
     for (k, v) in [
         ("Ogniwo", format!("{} ({}, {:.0} mAh, {:.1} A)", cell.name, cell.chemistry.label(), cell.capacity_mah, cell.max_cont_a)),
@@ -480,7 +481,10 @@ fn info_pages(d: &mut Doc, project: &Project, layout: &Layout) {
         ("Masa (szac.)", format!("{:.2} kg", st.weight_est_g / 1000.0)),
         ("BMS", rec.bms.clone()),
         ("Ładowarka", format!("{} · {:.1} A", rec.charger, rec.charge_current_a)),
-        ("Taśma (szeregowo)", format!("{}× {:.2}×{:.0} mm, {}", s.layers, s.thickness_mm, s.width_mm, project.strip.label())),
+        ("Nikiel — szeregowo", format!("{} ({:.1} A na pasek, {} pask. na złączu)", sp.series.label(), sp.series_current_a, sp.series_links)),
+        ("Nikiel — równolegle", format!("{} ({:.1} A na pasek)", sp.parallel.label(), sp.parallel_current_a)),
+        ("Nikiel — bieguny B+/B−", format!("{} ({:.1} A, przewód w środku blaszki)", sp.terminal.label(), sp.terminal_current_a)),
+        ("Taśma", format!("{} · zgrzewarka do {:.2} mm", project.strip.label(), sp.max_thickness_mm)),
         ("Przewody", format!("główne {awg} AWG ({mm2} mm²) · balanser {}", rec.balance_wire)),
         ("Bezpiecznik", format!("{:.0} A na B+", rec.fuse_a)),
     ] {
@@ -557,7 +561,8 @@ fn info_pages(d: &mut Doc, project: &Project, layout: &Layout) {
                 .collect::<Vec<_>>()
                 .join(" + ");
             let kind = if pl.groups.len() > 1 { "szeregowo" } else if pl.tap == 0 { "biegun B−" } else { "biegun B+" };
-            let text = format!("B{} — {kind}: {groups}", pl.tap);
+            let strip = if pl.groups.len() > 1 { sp.series.label() } else { sp.terminal.label() };
+            let text = format!("B{} — {kind}: {groups} · nikiel {strip}", pl.tap);
             let lines = d.wrap(&text, 7.5, col_w - 7.0);
             if y + lines.len() as f32 * 3.6 > PAGE_H - 10.0 {
                 d.page();

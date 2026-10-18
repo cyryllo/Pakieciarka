@@ -3,6 +3,7 @@
 
 pub mod calc;
 pub mod cells;
+pub mod disclaimer;
 pub mod gcode;
 pub mod layout;
 pub mod modules;

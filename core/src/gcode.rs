@@ -231,6 +231,9 @@ pub fn generate(layout: &Layout, st: &GcodeSettings) -> GcodeOutput {
             }
         ),
     );
+    for l in crate::disclaimer::GCODE {
+        line(&mut g, &format!("; {l}"));
+    }
     if st.dry_run {
         line(&mut g, "; TRYB PRÓBNY — bez wyzwalania zgrzewu");
     }

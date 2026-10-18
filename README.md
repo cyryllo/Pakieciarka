@@ -18,6 +18,8 @@ Jeden kod w Rust ([egui](https://github.com/emilk/egui)) działa jako **natywna 
 - **Układ i połączenia** — siatka lub plaster miodu, grupy zawijane wężykiem, polaryzacja każdego ogniwa,
   blaszki równoległe i szeregowe na górze i dole, odczepy balansera B0…BS z napięciami, numery ogniw
   i znacznik ogniwa #1 (jak „pin 1” w układach scalonych), widok dołu po obróceniu (na bok albo do siebie).
+- **Łączniki niklowe** — jaka grubość i ile warstw taśmy na złącza szeregowe, równoległe i bieguny B+/B−,
+  z uwzględnieniem materiału, szerokości taśmy i możliwości zgrzewarki; spadek napięcia i straty w niklu.
 - **PDF do druku** — góra i dół w skali 1:1 (gdy mieszczą się na A4) z linijką kontrolną, tabela odczepów
   i lista kontrolna blaszek — do ręcznego zgrzewania.
 - **Moduły** — duże pakiety z modułów łączonych szeregowo i równolegle: schemat, numeracja balansera,
@@ -127,5 +129,11 @@ i także udostępniana jako aplikacja www — musi pozostać otwarta, na tej sam
 
 Interfejs i PDF korzystają z czcionek dołączonych do egui (Ubuntu Font Licence, OFL).
 
-> Wyliczenia programu to pomoc projektowa — zawsze weryfikuj je z kartami katalogowymi ogniw, BMS i taśmy.
-> Pracuj z ogniwami litowymi ostrożnie; powyżej 60 V DC napięcie jest niebezpieczne.
+## Zastrzeżenia
+
+> **Pakieciarka jest narzędziem pomocniczym.** Wszystkie wartości (prądy, dobór taśmy, przewodów, BMS, bezpieczników,
+> masy, wymiary) są wyliczane z uproszczonych modeli i reguł kciuka; rysunki, PDF i G-code mogą zawierać błędy.
+> Budowa i użytkowanie akumulatorów litowych grozi pożarem, wybuchem i porażeniem; powyżej 60 V DC napięcie jest
+> niebezpieczne dla życia. Program jest dostarczany „tak jak jest”, **bez jakiejkolwiek gwarancji** (GNU GPL v3,
+> pkt 15–16) — autor nie ponosi odpowiedzialności za szkody wynikłe z jego użycia. **Korzystasz na własną
+> odpowiedzialność.** Pełna treść: [instrukcja, rozdział 13](docs/INSTRUKCJA.md#13-bezpieczeństwo-i-zastrzeżenia).
