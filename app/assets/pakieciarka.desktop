@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Pakieciarka
+GenericName=Konfigurator pakietów akumulatorów
+Comment=Projektowanie pakietów 18650/21700 i generowanie G-code dla zgrzewarki
+Exec=pakieciarka %F
+Icon=pakieciarka
+Terminal=false
+Categories=Development;Engineering;Electronics;
+Keywords=18650;21700;akumulator;battery;pack;BMS;zgrzewarka;spot welder;gcode;FluidNC;GRBL;
+StartupWMClass=pakieciarka

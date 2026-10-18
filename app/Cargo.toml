@@ -1,0 +1,29 @@
+[package]
+name = "pakieciarka"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Konfigurator pakietów akumulatorów 18650/21700 z generatorem G-code dla zgrzewarki"
+
+[dependencies]
+pakiet-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "persistence", "wayland", "x11", "clipboard"] }
+egui = { version = "0.37", features = ["monochrome_emoji_fonts"] }
+log = "0.4"
+rfd = "0.17"
+pdf-writer = "0.15"
+ttf-parser = "0.25"
+miniz_oxide = "0.9"
+epaint_default_fonts = "0.37"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "wasmbind"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.11"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlCanvasElement", "HtmlAnchorElement", "Blob", "BlobPropertyBag", "Url", "Storage"] }

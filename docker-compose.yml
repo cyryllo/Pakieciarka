@@ -1,0 +1,7 @@
+services:
+  pakieciarka:
+    build: .
+    image: pakieciarka:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped

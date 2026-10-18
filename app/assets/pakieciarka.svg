@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <!-- koszulka ogniwa: cieniowanie walca -->
+    <linearGradient id="wrap" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#0f6b4f"/>
+      <stop offset="0.35" stop-color="#2fbf8a"/>
+      <stop offset="0.55" stop-color="#5fe0ae"/>
+      <stop offset="1" stop-color="#0c573f"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#8a9099"/>
+      <stop offset="0.45" stop-color="#eef1f4"/>
+      <stop offset="1" stop-color="#7d838c"/>
+    </linearGradient>
+    <linearGradient id="nickel" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#e3e7ec"/>
+      <stop offset="1" stop-color="#a9b0b8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ogniwo 18650 -->
+  <g transform="rotate(-12 128 140)">
+    <!-- dno -->
+    <ellipse cx="128" cy="222" rx="50" ry="14" fill="#0a3f2e"/>
+    <!-- walec -->
+    <rect x="78" y="62" width="100" height="160" fill="url(#wrap)"/>
+    <!-- opaska izolacyjna przy plusie -->
+    <rect x="78" y="70" width="100" height="10" fill="#0b3a2c" opacity="0.55"/>
+    <!-- napis/pasek -->
+    <rect x="96" y="112" width="12" height="78" rx="6" fill="#ffffff" opacity="0.18"/>
+    <!-- metalowy wierzch -->
+    <ellipse cx="128" cy="62" rx="50" ry="14" fill="url(#metal)" stroke="#5b616a" stroke-width="2"/>
+    <!-- biegun dodatni -->
+    <rect x="110" y="44" width="36" height="16" fill="url(#metal)"/>
+    <ellipse cx="128" cy="60" rx="18" ry="5" fill="#6b717a"/>
+    <ellipse cx="128" cy="44" rx="18" ry="5" fill="#f4f6f8" stroke="#5b616a" stroke-width="2"/>
+    <!-- blaszka niklowa z punktami zgrzewu -->
+    <path d="M70 34 L186 34 L186 52 L70 52 Z" fill="url(#nickel)" stroke="#6f767f" stroke-width="2" transform="skewX(-6) translate(4 0)"/>
+    <circle cx="117" cy="43" r="4" fill="#4b5058"/>
+    <circle cx="137" cy="43" r="4" fill="#4b5058"/>
+    <!-- znak + -->
+    <path d="M128 132 v34 M111 149 h34" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <!-- iskra zgrzewu -->
+  <g transform="translate(186 26)">
+    <path d="M28 0 L6 34 H22 L12 64 L46 22 H29 L38 0 Z" fill="#facc15" stroke="#7a5b00" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+  <g stroke="#facc15" stroke-width="4" stroke-linecap="round">
+    <path d="M150 30 l-10 -10"/>
+    <path d="M160 18 l-2 -14"/>
+    <path d="M176 22 l6 -12"/>
+  </g>
+</svg>

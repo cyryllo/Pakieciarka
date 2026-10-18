@@ -1,0 +1,4 @@
+/target
+/app/dist
+*.gcode
+dist/
