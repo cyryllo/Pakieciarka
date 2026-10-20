@@ -297,7 +297,7 @@ Kolumna *Wariant* to najmniejszy dostępny wariant prądu spełniający wymagani
 - **✔ sprawdzone** — Twój własny BMS z danymi z dokumentacji,
 - **⚠ do sprawdzenia** — dane wbudowane, orientacyjne (zebrane z opisów producentów i sprzedawców; najechanie
   kursorem pokazuje uwagi). Rodziny w bazie: Daly (standard z portem wspólnym i osobnym, Smart), JBD SP17S / SP24S,
-  JK B1A8S / BD6A17S / B2A24S.
+  JK B1A8S / BD6A17S / B2A24S oraz ogólny „BMS bez marki” (tanie moduły 2–8S).
 
 > To pomoc w doborze, nie rekomendacja zakupowa. Warianty i oznaczenia BMS-ów często się zmieniają — zawsze sprawdź
 > kartę katalogową konkretnego egzemplarza.
@@ -308,11 +308,18 @@ Kolumna *Wariant* to najmniejszy dostępny wariant prądu spełniający wymagani
   gruby przewód **B−** do minusa pakietu, **P−** (port wspólny) albo **P−** i **C−** (port osobny) do odbiornika
   i ładowarki, plus pakietu przez **bezpiecznik** prosto do odbiornika i ładowarki (BMS nie przerywa plusa),
   czujnik(i) **NTC**;
-- **wtyczkę balansera** — tabela: pin, odczep, strona pakietu, na której jest blaszka, napięcie nominalne
-  i po naładowaniu;
+- **wtyczkę balansera** — tabela: pin, odczep, **napis na płytce**, strona pakietu, na której jest blaszka,
+  napięcie nominalne i po naładowaniu;
 - **kolejność podłączania** krok po kroku — z pomiarem miernikiem przed wpięciem wtyczki.
 
-![Schemat podłączenia BMS z portem osobnym (P− i C−)](img/14-bms-schemat.png)
+![Schemat podłączenia taniego BMS — punkty opisane napięciem (3.7V, 7.4V …)](img/14-bms-schemat.png)
+
+**Napisy na płytce.** Markowe BMS-y opisują przewody balansera numerami odczepów (B0, B1, B2 …), ale tanie moduły
+często podają przy polach lutowniczych **narastające napięcie**: `0V`, `3.7V`, `7.4V`, `11.1V` … (dla LiFePO4:
+`3.2V`, `6.4V` …), a niektóre numery ogniw: `B−`, `1S`, `2S` … Program przelicza to w kolumnie **Na płytce**
+i przy pinach na schemacie — np. `7.4V` = B2, `11.1V` = B3. Napis jest nominalny: zmierzone napięcie zależy
+od naładowania ogniw (na B2 przy pełnym naładowaniu będzie ok. 8,4 V). Sposób opisu ustawiasz dla własnego BMS
+w polu *Opis punktów na płytce*.
 
 > Kolejność pinów we wtyczce balansera bywa **odwrócona** między modelami, a nawet egzemplarzami. Pomyłka niszczy BMS.
 > Zawsze zmierz napięcia na wtyczce (odłączonej od BMS) względem pinu B0 — mają rosnąć o napięcie jednego ogniwa
@@ -320,7 +327,8 @@ Kolumna *Wariant* to najmniejszy dostępny wariant prądu spełniający wymagani
 
 **Moje BMS-y** — dodaj BMS, który faktycznie masz (**➕ Dodaj własny BMS** albo **📋 Skopiuj do moich i popraw**
 przy wybranym modelu z bazy). W oknie edycji: nazwa, producent, zakres S, chemia, prąd ciągły, balansowanie
-(pasywne / aktywne, prąd), port (wspólny / osobny), aplikacja, liczba NTC, **pin 1 wtyczki** (B0 albo B+), uwagi
+(pasywne / aktywne, prąd), port (wspólny / osobny), aplikacja, liczba NTC, **pin 1 wtyczki** (B0 albo B+),
+**opis punktów na płytce** (B0/B1…, napięcia 3.7V/7.4V… albo 1S/2S…), uwagi
 i znacznik „dane sprawdzone z dokumentacją”. Sekcja *Moje BMS-y* (zwinięta) pozwala edytować i usuwać własne
 BMS-y także wtedy, gdy nie pasują do otwartego pakietu. Import / eksport — pliki JSON.
 

@@ -41,6 +41,55 @@ impl Balancing {
     }
 }
 
+/// Jak opisane są punkty balansera na płytce / przewodach.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PadLabels {
+    /// B0 (B−), B1, B2 … BS (B+)
+    #[default]
+    Taps,
+    /// Narastające napięcie nominalne: 0V, 3.7V, 7.4V … (LiFePO4: 3.2V, 6.4V …) — typowe w tanich BMS
+    Voltages,
+    /// Numer ogniwa: B−, 1S, 2S …
+    Cells,
+}
+
+impl PadLabels {
+    pub const ALL: [PadLabels; 3] = [PadLabels::Taps, PadLabels::Voltages, PadLabels::Cells];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            PadLabels::Taps => "B0, B1, B2 … (numery odczepów)",
+            PadLabels::Voltages => "0V, 3.7V, 7.4V … (napięcia)",
+            PadLabels::Cells => "B−, 1S, 2S … (numery ogniw)",
+        }
+    }
+}
+
+/// Napięcie „na etykiecie” jednego ogniwa — tanie płytki opisują punkty wielokrotnością tej wartości.
+pub fn label_cell_voltage(chem: Chemistry) -> f64 {
+    match chem {
+        Chemistry::LiIon => 3.7,
+        Chemistry::LiFePO4 => 3.2,
+    }
+}
+
+/// Napis przy punkcie balansera dla odczepu `tap` (0…s).
+pub fn pad_label(b: &Bms, tap: usize, s: usize, chem: Chemistry) -> String {
+    match b.pad_labels {
+        PadLabels::Taps => match tap {
+            0 => "B0 / B−".into(),
+            t if t == s => format!("B{t} / B+"),
+            t => format!("B{t}"),
+        },
+        PadLabels::Voltages => {
+            let v = tap as f64 * label_cell_voltage(chem);
+            let txt = format!("{v:.1}").replace(".0", "");
+            format!("{txt}V")
+        }
+        PadLabels::Cells => if tap == 0 { "B−".into() } else { format!("{tap}S") },
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Bms {
@@ -62,6 +111,8 @@ pub struct Bms {
     pub ntc: u8,
     /// true: pin 1 wtyczki balansera = B0 (B−); false: pin 1 = BS (B+)
     pub b0_first: bool,
+    /// Opis punktów balansera na płytce
+    pub pad_labels: PadLabels,
     /// Dane potwierdzone z dokumentacją producenta
     pub verified: bool,
     pub notes: String,
@@ -82,6 +133,7 @@ impl Default for Bms {
             smart: false,
             ntc: 1,
             b0_first: true,
+            pad_labels: PadLabels::Taps,
             verified: true,
             notes: String::new(),
         }
@@ -134,6 +186,7 @@ fn family(
         smart,
         ntc: if smart { 2 } else { 1 },
         b0_first: true,
+        pad_labels: PadLabels::Taps,
         verified: false,
         notes: notes.into(),
     }
@@ -143,7 +196,21 @@ fn family(
 pub fn builtin_bms() -> Vec<Bms> {
     use Balancing::*;
     use Port::*;
+    let mut generic = family(
+        "—",
+        "BMS bez marki (moduł z polami lutowniczymi)",
+        (2, 8),
+        &[10.0, 20.0, 30.0, 40.0],
+        Passive,
+        30.0,
+        Common,
+        false,
+        "Tanie moduły (np. do elektronarzędzi): pola lutownicze opisane narastającym napięciem — 0V, 3.7V, 7.4V … zamiast B0, B1, B2. Często bez balansowania albo z bardzo małym prądem — sprawdź opis. Osobne płytki dla Li-ion i LiFePO4.",
+    );
+    generic.pad_labels = PadLabels::Voltages;
+    generic.ntc = 0;
     vec![
+        generic,
         family(
             "Daly",
             "Daly standard (port wspólny)",
@@ -279,7 +346,14 @@ pub fn balance_pins(b: &Bms, s: usize) -> Vec<(usize, usize)> {
 
 /// Opis podłączenia krok po kroku.
 pub fn wiring_steps(b: &Bms, s: usize, nominal_v: f64) -> Vec<String> {
-    let mut v = vec![
+    let mut v = Vec::new();
+    if b.pad_labels != PadLabels::Taps {
+        v.push(match b.pad_labels {
+            PadLabels::Voltages => "Punkty na płytce są opisane napięciem (0V, 3.7V, 7.4V …): to narastające napięcie odczepu względem B−, czyli 3.7V = B1, 7.4V = B2 itd. — kolumna „Na płytce” w tabeli pinów. Opis jest nominalny; zmierzone napięcie zależy od naładowania ogniw.".to_string(),
+            _ => "Punkty na płytce są opisane numerami ogniw (B−, 1S, 2S …): 1S = B1, 2S = B2 itd. — kolumna „Na płytce” w tabeli pinów.".to_string(),
+        });
+    }
+    v.extend([
         "Pakiet bez podłączonego BMS: zmierz miernikiem napięcia odczepów narastająco od B− (B1 ≈ 1 ogniwo, B2 ≈ 2 ogniwa …) i porównaj z tabelą odczepów.".to_string(),
         format!(
             "Przygotuj przewody balansera: {} żył (B0…B{s}). Kolejność pinów we wtyczce sprawdź w dokumentacji BMS — bywa odwrócona; pomyłka niszczy płytkę.",
@@ -290,7 +364,7 @@ pub fn wiring_steps(b: &Bms, s: usize, nominal_v: f64) -> Vec<String> {
             "Na wtyczce (nadal odłączonej) zmierz kolejne piny względem pinu B0 — napięcie ma rosnąć o ≈ {nominal_v:.1} V na pin, aż do pełnego napięcia pakietu na B{s}."
         ),
         "Gruby przewód B− BMS przykręć/przylutuj do minusa pakietu (blaszka B0).".to_string(),
-    ];
+    ]);
     match b.port {
         Port::Common => v.push("P− BMS to nowy minus pakietu: do niego podłącz minus odbiornika i ładowarki.".into()),
         Port::Separate => {
@@ -322,6 +396,17 @@ mod tests {
         let m = match_bms(&jk, 4, Chemistry::LiIon, 35.0);
         assert!(!m.ok());
         assert_eq!(required_current(25.0), 35.0);
+    }
+
+    #[test]
+    fn pad_labels() {
+        let b = Bms { pad_labels: PadLabels::Voltages, ..Default::default() };
+        assert_eq!(pad_label(&b, 0, 4, Chemistry::LiIon), "0V");
+        assert_eq!(pad_label(&b, 2, 4, Chemistry::LiIon), "7.4V");
+        assert_eq!(pad_label(&b, 3, 4, Chemistry::LiIon), "11.1V");
+        assert_eq!(pad_label(&b, 1, 4, Chemistry::LiFePO4), "3.2V");
+        let c = Bms { pad_labels: PadLabels::Cells, ..Default::default() };
+        assert_eq!(pad_label(&c, 3, 4, Chemistry::LiIon), "3S");
     }
 
     #[test]

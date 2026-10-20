@@ -584,7 +584,7 @@ fn info_pages(d: &mut Doc, project: &Project, layout: &Layout) {
 }
 
 fn bms_page(d: &mut Doc, project: &Project, layout: &Layout, b: &pakiet_core::bms::Bms) {
-    use pakiet_core::bms::{balance_pins, match_bms, required_current, wiring_steps};
+    use pakiet_core::bms::{balance_pins, match_bms, pad_label, required_current, wiring_steps};
     let cell = &project.cell;
     let s = project.s;
     d.page();
@@ -627,8 +627,8 @@ fn bms_page(d: &mut Doc, project: &Project, layout: &Layout, b: &pakiet_core::bm
     let mut y = top;
     d.text(MARGIN, y, "Wtyczka balansera", 9.0, BLACK, Align::Left, true);
     y += 5.0;
-    let cols = [0.0, 12.0, 34.0, 50.0, 72.0];
-    for (i, h) in ["Pin", "Odczep", "Blaszka", "Nominalnie", "Naładowany"].iter().enumerate() {
+    let cols = [0.0, 10.0, 28.0, 46.0, 62.0, 80.0];
+    for (i, h) in ["Pin", "Odczep", "Na płytce", "Blaszka", "Nominalnie", "Naładowany"].iter().enumerate() {
         d.text(MARGIN + cols[i], y, h, 7.5, GRAY, Align::Left, true);
     }
     y += 4.0;
@@ -645,6 +645,7 @@ fn bms_page(d: &mut Doc, project: &Project, layout: &Layout, b: &pakiet_core::bm
         for (i, v) in [
             pin.to_string(),
             name,
+            pad_label(b, tap, s, cell.chemistry),
             side.to_string(),
             format!("{:.1} V", tap as f64 * cell.nominal_v),
             format!("{:.2} V", tap as f64 * cell.max_v),
@@ -657,7 +658,7 @@ fn bms_page(d: &mut Doc, project: &Project, layout: &Layout, b: &pakiet_core::bm
         y += 3.6;
     }
 
-    let x = MARGIN + 105.0;
+    let x = MARGIN + 112.0;
     let w = PAGE_W - MARGIN - x;
     let mut y = top;
     d.text(x, y, "Kolejność podłączania", 9.0, BLACK, Align::Left, true);

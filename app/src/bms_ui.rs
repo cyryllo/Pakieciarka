@@ -5,7 +5,7 @@ use crate::draw::{NEG, POS};
 use crate::platform::{self, OpenKind};
 use crate::store;
 use egui::{vec2, Align2, Color32, FontId, Rect, RichText, Sense, Shape, Stroke, Ui};
-use pakiet_core::bms::{balance_pins, match_bms, required_current, wiring_steps, Balancing, Bms, Port};
+use pakiet_core::bms::{balance_pins, match_bms, pad_label, required_current, wiring_steps, Balancing, Bms, PadLabels, Port};
 use pakiet_core::calc::PackStats;
 use pakiet_core::cells::Chemistry;
 use pakiet_core::layout::Layout;
@@ -215,7 +215,7 @@ impl PakieciarkaApp {
             ui.add_space(6.0);
             let w = ui.available_width();
             let h = (w * wiring_height(st.s) / 900.0).clamp(260.0, 1100.0);
-            draw_bms_wiring(ui, b, st.s, vec2(w, h));
+            draw_bms_wiring(ui, b, st.s, self.project.cell.chemistry, vec2(w, h));
         });
 
         ui.columns(2, |cols| {
@@ -228,8 +228,15 @@ impl PakieciarkaApp {
                     })
                     .small(),
                 );
-                egui::Grid::new("bms_pins").striped(true).num_columns(5).show(ui, |ui| {
-                    for h in ["Pin", "Odczep", "Blaszka", "Nominalnie", "Naładowany"] {
+                if b.pad_labels == PadLabels::Voltages {
+                    ui.label(
+                        RichText::new("Na płytce punkty są opisane napięciem — kolumna „Na płytce” pokazuje, który odczep to który (np. 7.4V = B2).")
+                            .small()
+                            .strong(),
+                    );
+                }
+                egui::Grid::new("bms_pins").striped(true).num_columns(6).show(ui, |ui| {
+                    for h in ["Pin", "Odczep", "Na płytce", "Blaszka", "Nominalnie", "Naładowany"] {
                         ui.strong(h);
                     }
                     ui.end_row();
@@ -241,6 +248,7 @@ impl PakieciarkaApp {
                             t if t == st.s => format!("B{t} (B+)"),
                             t => format!("B{t}"),
                         });
+                        ui.label(RichText::new(pad_label(b, tap, st.s, cell.chemistry)).strong());
                         let side = layout.plates.iter().find(|p| p.tap == tap).map(|p| p.side.label()).unwrap_or("—");
                         ui.label(side);
                         ui.label(format!("{:.1} V", tap as f64 * cell.nominal_v));
@@ -357,6 +365,13 @@ impl PakieciarkaApp {
                     ui.radio_value(&mut b.b0_first, false, "B+ (najwyższy)");
                 });
                 ui.end_row();
+                ui.label("Opis punktów na płytce:");
+                egui::ComboBox::from_id_salt("pad_labels").selected_text(b.pad_labels.label()).show_ui(ui, |ui| {
+                    for l in PadLabels::ALL {
+                        ui.selectable_value(&mut b.pad_labels, l, l.label());
+                    }
+                });
+                ui.end_row();
                 ui.label("Uwagi:");
                 ui.text_edit_multiline(&mut b.notes);
                 ui.end_row();
@@ -418,11 +433,11 @@ impl PakieciarkaApp {
 
 /// Wysokość schematu w jednostkach logicznych (szerokość = 900).
 pub fn wiring_height(s: usize) -> f32 {
-    100.0 + s as f32 * 24.0 + 90.0
+    100.0 + s as f32 * 24.0 + 115.0
 }
 
 /// Schemat: pakiet (grupy G1…GS z odczepami) — wtyczka balansera BMS — B−/P−/C− — odbiornik i ładowarka.
-pub fn draw_bms_wiring(ui: &mut Ui, b: &Bms, s: usize, size: egui::Vec2) {
+pub fn draw_bms_wiring(ui: &mut Ui, b: &Bms, s: usize, chem: Chemistry, size: egui::Vec2) {
     let dark = ui.visuals().dark_mode;
     let (resp, painter) = ui.allocate_painter(size, Sense::hover());
     let rect = resp.rect;
@@ -455,7 +470,8 @@ pub fn draw_bms_wiring(ui: &mut Ui, b: &Bms, s: usize, size: egui::Vec2) {
     let bms_rect = Rect::from_min_max(p(bx0, top - 20.0), p(bx1, tap_y(0) + 50.0));
     painter.rect_filled(bms_rect, 6.0, if dark { Color32::from_rgb(40, 60, 90) } else { Color32::from_rgb(200, 220, 245) });
     painter.text(bms_rect.center_top() + vec2(0.0, 14.0 * sc), Align2::CENTER_CENTER, "BMS", FontId::proportional(fs * 1.3), text);
-    painter.text(bms_rect.center(), Align2::CENTER_CENTER, b.name.as_str(), FontId::proportional(fs * 0.85), text);
+    // nazwa nad blokiem (w środku bloku przechodzą przewody balansera)
+    painter.text(bms_rect.center_top() - vec2(0.0, 6.0), Align2::CENTER_BOTTOM, b.name.as_str(), FontId::proportional(fs * 0.85), text);
 
     // odczepy → wtyczka balansera
     let pins = balance_pins(b, s);
@@ -467,7 +483,11 @@ pub fn draw_bms_wiring(ui: &mut Ui, b: &Bms, s: usize, size: egui::Vec2) {
         painter.circle_filled(from, 3.0, col);
         painter.line_segment([from, to], Stroke::new(1.4, col));
         painter.text(p(px1 + 8.0, y - 2.0), Align2::LEFT_BOTTOM, format!("B{tap}"), FontId::proportional(fs * 0.85), text);
-        painter.text(p(bx0 - 6.0, y - 2.0), Align2::RIGHT_BOTTOM, format!("pin {pin}"), FontId::proportional(fs * 0.8), text);
+        let pin_txt = match b.pad_labels {
+            PadLabels::Taps => format!("pin {pin}"),
+            _ => format!("pin {pin} · {}", pad_label(b, tap, s, chem)),
+        };
+        painter.text(p(bx0 - 6.0, y - 2.0), Align2::RIGHT_BOTTOM, pin_txt, FontId::proportional(fs * 0.8), text);
     }
     painter.text(p((px1 + bx0) / 2.0, top - 16.0), Align2::CENTER_CENTER, "przewody balansera", FontId::proportional(fs), text);
 
@@ -507,8 +527,13 @@ pub fn draw_bms_wiring(ui: &mut Ui, b: &Bms, s: usize, size: egui::Vec2) {
     match b.port {
         Port::Common => {
             painter.text(p(bx1 - 6.0, y_bminus - 20.0), Align2::RIGHT_CENTER, "P−", FontId::proportional(fs), text);
-            painter.add(Shape::line(vec![p(bx1, y_bminus - 20.0), p(655.0, y_bminus - 20.0), p(655.0, y_load_minus), p(lx, y_load_minus)], thick));
-            painter.add(Shape::line(vec![p(655.0, y_ch_minus), p(cx, y_ch_minus)], thick));
+            let yp = y_bminus - 20.0;
+            painter.line_segment([p(bx1, yp), p(655.0, yp)], thick);
+            // wspólna szyna minusa: od P− do obu odbiorników, niezależnie od kolejności wysokości
+            let (y0, y1) = (yp.min(y_load_minus).min(y_ch_minus), yp.max(y_load_minus).max(y_ch_minus));
+            painter.line_segment([p(655.0, y0), p(655.0, y1)], thick);
+            painter.line_segment([p(655.0, y_load_minus), p(lx, y_load_minus)], thick);
+            painter.line_segment([p(655.0, y_ch_minus), p(cx, y_ch_minus)], thick);
         }
         Port::Separate => {
             painter.text(p(bx1 - 6.0, y_bminus - 34.0), Align2::RIGHT_CENTER, "P−", FontId::proportional(fs), text);
@@ -520,14 +545,14 @@ pub fn draw_bms_wiring(ui: &mut Ui, b: &Bms, s: usize, size: egui::Vec2) {
     painter.text(p(lx + 6.0, y_load_minus), Align2::LEFT_CENTER, "−", FontId::monospace(fs * 1.2), NEG);
     painter.text(p(cx + 6.0, y_ch_minus), Align2::LEFT_CENTER, "−", FontId::monospace(fs * 1.2), NEG);
 
-    // NTC — obrzeżem: od góry BMS, nad pakietem, z lewej do środka pakietu
+    // NTC — dołem: spod BMS, pod pakietem, z lewej do środka pakietu (bez krzyżowania przewodów)
     if b.ntc > 0 {
         let col = Color32::from_rgb(230, 160, 0);
-        let y = top - 36.0;
+        let y = tap_y(0) + 72.0;
         let mid = tap_y(s / 2) - step / 2.0;
-        let path = [p(bx0 + 20.0, top - 20.0), p(bx0 + 20.0, y), p(30.0, y), p(30.0, mid), p(px0, mid)];
+        let path = [p(bx0 + 20.0, tap_y(0) + 50.0), p(bx0 + 20.0, y), p(30.0, y), p(30.0, mid), p(px0, mid)];
         painter.extend(Shape::dashed_line(&path, Stroke::new(1.2, col), 5.0, 4.0));
-        painter.text(p(36.0, y + 4.0), Align2::LEFT_TOP, format!("NTC ×{}", b.ntc), FontId::proportional(fs * 0.85), col);
+        painter.text(p(36.0, y - 3.0), Align2::LEFT_BOTTOM, format!("NTC ×{}", b.ntc), FontId::proportional(fs * 0.85), col);
     }
 
     painter.text(
