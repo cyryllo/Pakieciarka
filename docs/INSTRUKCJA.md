@@ -41,6 +41,16 @@ scripts/install-local.sh            # instaluje najnowszy AppImage z dist/ do ~/
 scripts/install-local.sh --uninstall
 ```
 
+### Linux — pakiet .deb (Debian 13, Ubuntu 24.04 i nowsze)
+
+```sh
+sudo apt install ./pakieciarka_*_amd64.deb     # instalacja (program trafia do menu aplikacji)
+sudo apt remove pakieciarka                    # odinstalowanie
+```
+
+Po instalacji Pakieciarka jest w menu aplikacji (Elektronika / Programowanie) i jako polecenie `pakieciarka`.
+Twoje projekty w `~/.local/share/pakieciarka` zostają przy odinstalowaniu i aktualizacji.
+
 ### Przeglądarka
 
 Pakieciarka działa też jako strona www (WebAssembly) — obliczenia wykonują się w przeglądarce, serwer tylko

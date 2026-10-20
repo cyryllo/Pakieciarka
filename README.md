@@ -45,7 +45,23 @@ scripts/install-local.sh       # instalacja do ~/.local/bin + wpis w menu i ikon
 scripts/install-local.sh --uninstall
 ```
 
-`build-appimage.sh` przy każdym buildzie podbija ostatnią cyfrę wersji w `Cargo.toml`
+### Pakiet .deb (Debian 13, Ubuntu 24.04 i nowsze)
+
+```sh
+scripts/build-deb.sh           # -> dist/pakieciarka_<wersja>_amd64.deb (podbija wersję)
+sudo apt install ./dist/pakieciarka_<wersja>_amd64.deb
+sudo apt remove pakieciarka
+```
+
+Pakiet instaluje program do `/usr/bin`, wpis w menu i ikonę. Wymaga glibc ≥ 2.39.
+
+### Oba pakiety naraz
+
+```sh
+scripts/build-all.sh           # podbija wersję raz, buduje AppImage i .deb z tym samym numerem
+```
+
+`build-appimage.sh` i `build-deb.sh` przy każdym buildzie podbijają ostatnią cyfrę wersji w `Cargo.toml`
 (`--no-bump` pomija podbicie).
 
 ### Natywnie z kodu
