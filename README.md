@@ -4,7 +4,7 @@
 dla zgrzewarki (FluidNC / GRBL).**
 
 Jeden kod w Rust ([egui](https://github.com/emilk/egui)) działa jako **natywna aplikacja na Linuksa**
-(AppImage) i jako **aplikacja www** (WebAssembly, Docker).
+(AppImage, .deb) i **macOS** (.dmg) oraz jako **aplikacja www** (WebAssembly, Docker).
 
 ![Układ i połączenia pakietu 13S5P](docs/img/02-uklad-gora.png)
 
@@ -55,7 +55,21 @@ sudo apt remove pakieciarka
 
 Pakiet instaluje program do `/usr/bin`, wpis w menu i ikonę. Wymaga glibc ≥ 2.39.
 
-### Oba pakiety naraz
+### macOS (.dmg)
+
+Na Macu (Apple Silicon albo Intel, macOS 11+), z zainstalowanym Rustem i Xcode Command Line Tools:
+
+```sh
+scripts/build-macos.sh         # -> dist/Pakieciarka-<wersja>-macos.dmg (binarka uniwersalna)
+```
+
+Bez Maca: workflow **GitHub Actions → macOS DMG** buduje ten sam plik na runnerze macOS — ręcznie
+(„Run workflow”) albo automatycznie po wypchnięciu tagu `v*`. Gotowy `.dmg` jest w sekcji *Artifacts* przebiegu.
+
+Aplikacja ma tylko podpis ad-hoc (bez certyfikatu Apple Developer), więc przy pierwszym uruchomieniu macOS
+ostrzeże o nieznanym deweloperze — patrz [instrukcja](docs/INSTRUKCJA.md#macos--dmg).
+
+### Oba pakiety Linuksa naraz
 
 ```sh
 scripts/build-all.sh           # podbija wersję raz, buduje AppImage i .deb z tym samym numerem

@@ -70,7 +70,8 @@ pub fn save_bytes(default_name: &str, content: &[u8], filter: (&str, &[&str]), o
     std::fs::write(&path, content).map_err(|e| format!("{}: {e}", path.display()))?;
     if open_after {
         // podgląd do druku w domyślnej przeglądarce PDF
-        let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+        let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+        let _ = std::process::Command::new(opener).arg(&path).spawn();
     }
     Ok(Some(format!("zapisano {}", path.display())))
 }

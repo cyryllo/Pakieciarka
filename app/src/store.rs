@@ -49,10 +49,13 @@ mod backend {
     use super::*;
     use std::path::PathBuf;
 
+    /// `$XDG_DATA_HOME/pakieciarka`, a bez niej: Linux `~/.local/share/pakieciarka`,
+    /// macOS `~/Library/Application Support/pakieciarka` (tam też eframe trzyma stan okna).
     fn data_dir() -> PathBuf {
+        let default = if cfg!(target_os = "macos") { "Library/Application Support" } else { ".local/share" };
         std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(default)))
             .unwrap_or_else(|| PathBuf::from("."))
             .join("pakieciarka")
     }

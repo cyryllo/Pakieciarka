@@ -1,0 +1,30 @@
+# Buduje Pakieciarka-<wersja>-macos.dmg na runnerze macOS.
+# Uruchomienie: ręcznie (Actions → macOS DMG → Run workflow) albo automatycznie po wypchnięciu tagu v*.
+# Gotowy plik jest w zakładce „Artifacts” przebiegu — do ręcznego dołączenia do Release.
+name: macOS DMG
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Testy
+        run: cargo test
+      - name: Budowanie DMG
+        run: scripts/build-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pakieciarka-macos-dmg
+          path: dist/*.dmg
+          if-no-files-found: error

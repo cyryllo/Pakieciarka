@@ -51,6 +51,18 @@ sudo apt remove pakieciarka                    # odinstalowanie
 Po instalacji Pakieciarka jest w menu aplikacji (Elektronika / Programowanie) i jako polecenie `pakieciarka`.
 Twoje projekty w `~/.local/share/pakieciarka` zostają przy odinstalowaniu i aktualizacji.
 
+### macOS — .dmg
+
+1. Otwórz `Pakieciarka-<wersja>-macos.dmg` i przeciągnij **Pakieciarka** do folderu **Aplikacje**.
+2. Pierwsze uruchomienie: aplikacja nie ma certyfikatu Apple Developer, więc macOS ją zablokuje
+   („nie można zweryfikować dewelopera”). W Finderze kliknij ją **prawym przyciskiem → Otwórz → Otwórz**
+   (na macOS 15: *Ustawienia systemowe → Prywatność i ochrona → Otwórz mimo to*). Kolejne uruchomienia działają
+   normalnie.
+
+   Alternatywnie w Terminalu: `xattr -dr com.apple.quarantine /Applications/Pakieciarka.app`
+
+Działa na Macach z Apple Silicon i Intel, macOS 11 lub nowszy. Skróty klawiszowe używają **⌘** zamiast Ctrl.
+
 ### Przeglądarka
 
 Pakieciarka działa też jako strona www (WebAssembly) — obliczenia wykonują się w przeglądarce, serwer tylko
@@ -450,9 +462,9 @@ Plik `.json` można też otworzyć z menedżera plików („Otwórz za pomocą �
 
 | Skrót | Działanie |
 |---|---|
-| Ctrl+S | zapisz projekt |
-| Ctrl+O | Moje projekty |
-| Ctrl+N | nowy projekt |
+| Ctrl+S (⌘S na macOS) | zapisz projekt |
+| Ctrl+O (⌘O) | Moje projekty |
+| Ctrl+N (⌘N) | nowy projekt |
 
 Opcje wiersza poleceń (wersja natywna):
 
@@ -467,13 +479,13 @@ Opcje wiersza poleceń (wersja natywna):
 
 ## 12. Gdzie program trzyma dane
 
-| Dane | Linux (wersja natywna) | Przeglądarka |
-|---|---|---|
-| Projekty | `~/.local/share/pakieciarka/projects/*.json` | localStorage |
-| Własne ogniwa | `~/.local/share/pakieciarka/cells.json` | localStorage |
-| Bieżący stan pracy i ustawienia widoku | `~/.local/share/pakieciarka/app.ron` | localStorage |
+| Dane | Linux | macOS | Przeglądarka |
+|---|---|---|---|
+| Projekty | `~/.local/share/pakieciarka/projects/*.json` | `~/Library/Application Support/pakieciarka/projects/*.json` | localStorage |
+| Własne ogniwa | `~/.local/share/pakieciarka/cells.json` | `~/Library/Application Support/pakieciarka/cells.json` | localStorage |
+| Bieżący stan pracy i ustawienia widoku | `~/.local/share/pakieciarka/app.ron` | `~/Library/Application Support/pakieciarka/app.ron` | localStorage |
 
-Projekty to zwykłe pliki JSON — kopia zapasowa to skopiowanie katalogu `~/.local/share/pakieciarka`.
+Projekty to zwykłe pliki JSON — kopia zapasowa to skopiowanie katalogu danych (tabela powyżej).
 Jeśli ustawiona jest zmienna `XDG_DATA_HOME`, katalog jest w `$XDG_DATA_HOME/pakieciarka`.
 
 ---
