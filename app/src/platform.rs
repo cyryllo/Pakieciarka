@@ -8,6 +8,7 @@ use std::rc::Rc;
 pub enum OpenKind {
     Project,
     Cells,
+    Bms,
 }
 
 pub struct OpenedFile {

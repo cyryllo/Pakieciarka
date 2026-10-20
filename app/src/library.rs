@@ -139,6 +139,7 @@ impl PakieciarkaApp {
                     Err(e) => self.status = format!("✖ {}: to nie jest projekt Pakieciarki ({e})", f.name),
                 },
                 OpenKind::Cells => self.import_cells(&f.name, &f.content),
+                OpenKind::Bms => self.import_bms(&f.name, &f.content),
             }
         }
 

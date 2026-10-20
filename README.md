@@ -20,6 +20,8 @@ Jeden kod w Rust ([egui](https://github.com/emilk/egui)) działa jako **natywna 
   i znacznik ogniwa #1 (jak „pin 1” w układach scalonych), widok dołu po obróceniu (na bok albo do siebie).
 - **Łączniki niklowe** — jaka grubość i ile warstw taśmy na złącza szeregowe, równoległe i bieguny B+/B−,
   z uwzględnieniem materiału, szerokości taśmy i możliwości zgrzewarki; spadek napięcia i straty w niklu.
+- **BMS** — lista BMS-ów pasujących do pakietu (Daly, JBD, JK + własne), schemat podłączenia B−/P−/C−
+  z bezpiecznikiem i NTC, tabela pinów wtyczki balansera i kolejność podłączania (także w PDF).
 - **PDF do druku** — góra i dół w skali 1:1 (gdy mieszczą się na A4) z linijką kontrolną, tabela odczepów
   i lista kontrolna blaszek — do ręcznego zgrzewania.
 - **Moduły** — duże pakiety z modułów łączonych szeregowo i równolegle: schemat, numeracja balansera,
@@ -104,11 +106,12 @@ cd app && trunk serve          # http://127.0.0.1:8080
 ## Struktura
 
 ```
-core/        pakiet-core — logika bez GUI: baza ogniw, obliczenia, układ i połączenia, moduły, G-code
+core/        pakiet-core — logika bez GUI: baza ogniw i BMS, obliczenia, układ i połączenia, moduły, G-code
 app/         pakieciarka — GUI (egui/eframe), natywnie i WASM
   src/app.rs       okno, zakładki, panel konfiguracji
   src/draw.rs      rysowanie pakietu, modułów i podglądu G-code
   src/library.rs   biblioteka projektów i własne ogniwa
+  src/bms_ui.rs    zakładka BMS: dopasowanie, własne BMS-y, schemat podłączenia
   src/store.rs     zapis danych (pliki JSON / localStorage)
   src/pdf.rs       eksport PDF
   src/platform.rs  okna plików (portal XDG / przeglądarka)
@@ -127,12 +130,13 @@ Opcje uruchomienia przydatne przy testach i zrzutach ekranu (wersja natywna):
 
 | Opcja | Działanie |
 |---|---|
-| `--tab kalk\|uklad\|moduly\|gcode\|baza\|projekty\|ogniwo` | start na zakładce / w oknie |
+| `--tab kalk\|uklad\|bms\|moduly\|gcode\|baza\|projekty\|ogniwo` | start na zakładce / w oknie |
 | `--projekt <id>` | otwiera projekt z biblioteki |
 | `--widok '<json>'` | nadpisuje ustawienia widoku, np. `'{"sides":"Bottom","show_spots":true}'` |
 | `--rozmiar 1500x950` | rozmiar okna |
 | `plik.json` | import projektu |
 | `PAKIECIARKA_SCREENSHOT=plik.ppm` | zapisuje zrzut okna i kończy program |
+| `PAKIECIARKA_SCROLL=px` | przewinięcie zakładki BMS (do zrzutów) |
 | `XDG_DATA_HOME=katalog` | osobny katalog danych (nie rusza Twoich projektów) |
 
 ### Konwencje
@@ -166,4 +170,4 @@ Interfejs i PDF korzystają z czcionek dołączonych do egui (Ubuntu Font Licenc
 > Budowa i użytkowanie akumulatorów litowych grozi pożarem, wybuchem i porażeniem; powyżej 60 V DC napięcie jest
 > niebezpieczne dla życia. Program jest dostarczany „tak jak jest”, **bez jakiejkolwiek gwarancji** (GNU GPL v3,
 > pkt 15–16) — autor nie ponosi odpowiedzialności za szkody wynikłe z jego użycia. **Korzystasz na własną
-> odpowiedzialność.** Pełna treść: [instrukcja, rozdział 13](docs/INSTRUKCJA.md#13-bezpieczeństwo-i-zastrzeżenia).
+> odpowiedzialność.** Pełna treść: [instrukcja, rozdział 14](docs/INSTRUKCJA.md#14-bezpieczeństwo-i-zastrzeżenia).

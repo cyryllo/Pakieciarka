@@ -1,5 +1,7 @@
 use crate::draw::{self, PackView};
+use crate::bms_ui::BmsEdit;
 use crate::library::{CellEdit, Pending};
+use pakiet_core::bms::{builtin_bms, Bms};
 use crate::platform::{self, Inbox};
 use crate::store::{self, SavedProject};
 use egui::{Color32, RichText, Ui};
@@ -35,6 +37,8 @@ pub struct Project {
     pub mod_series: usize,
     pub mod_parallel: usize,
     pub gcode: GcodeSettings,
+    /// Wybrany model BMS (kopia danych)
+    pub bms: Option<Bms>,
 }
 
 impl Project {
@@ -58,6 +62,7 @@ impl Default for Project {
             mod_series: 2,
             mod_parallel: 1,
             gcode: GcodeSettings::default(),
+            bms: None,
         }
     }
 }
@@ -67,6 +72,7 @@ enum Tab {
     Calc,
     Layout,
     Modules,
+    Bms,
     Gcode,
     Cells,
 }
@@ -137,6 +143,10 @@ pub struct PakieciarkaApp {
     pub(crate) pending: Option<Pending>,
     pub(crate) cell_edit: Option<CellEdit>,
     pub(crate) cell_delete_armed: Option<usize>,
+    pub(crate) builtin_bms: Vec<Bms>,
+    pub(crate) custom_bms: Vec<Bms>,
+    pub(crate) bms_edit: Option<BmsEdit>,
+    pub(crate) bms_delete_armed: Option<usize>,
     pub(crate) inbox: Inbox,
     pub(crate) last_title: String,
     about_window: bool,
@@ -172,6 +182,7 @@ impl PakieciarkaApp {
                 view.tab = match t.as_str() {
                     "uklad" => Tab::Layout,
                     "moduly" => Tab::Modules,
+                    "bms" => Tab::Bms,
                     "gcode" => Tab::Gcode,
                     "baza" => Tab::Cells,
                     _ => Tab::Calc,
@@ -237,6 +248,10 @@ impl PakieciarkaApp {
             pending: None,
             cell_edit,
             cell_delete_armed: None,
+            builtin_bms: builtin_bms(),
+            custom_bms: store::load_bms(),
+            bms_edit: None,
+            bms_delete_armed: None,
             inbox,
             last_title: String::new(),
             about_window: false,
@@ -369,6 +384,16 @@ impl eframe::App for PakieciarkaApp {
             Tab::Layout => {
                 egui::ScrollArea::vertical().show(ui, |ui| self.tab_layout(ui, &layout, &stats));
             }
+            Tab::Bms => {
+                #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
+                let mut area = egui::ScrollArea::vertical();
+                // PAKIECIARKA_SCROLL=px — przewinięcie do zrzutów ekranu (testy)
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(px) = std::env::var("PAKIECIARKA_SCROLL").ok().and_then(|v| v.parse::<f32>().ok()) {
+                    area = area.vertical_scroll_offset(px);
+                }
+                area.show(ui, |ui| self.tab_bms(ui, &layout, &stats));
+            }
             Tab::Modules => {
                 egui::ScrollArea::vertical().show(ui, |ui| self.tab_modules(ui));
             }
@@ -381,6 +406,7 @@ impl eframe::App for PakieciarkaApp {
         self.json_window(ui);
         self.library_windows(&ui.ctx().clone());
         self.disclaimer_windows(&ui.ctx().clone());
+        self.bms_edit_window(&ui.ctx().clone());
     }
 }
 
@@ -401,6 +427,7 @@ impl PakieciarkaApp {
             let tabs = [
                 (Tab::Calc, "📊 Kalkulator"),
                 (Tab::Layout, "🔀 Układ i połączenia"),
+                (Tab::Bms, "🔌 BMS"),
                 (Tab::Modules, "🔗 Moduły"),
                 (Tab::Gcode, "⚙ G-code"),
                 (Tab::Cells, "📚 Baza ogniw"),
@@ -626,7 +653,13 @@ impl PakieciarkaApp {
                 let s = &rec.strip.series;
                 let (awg, mm2, amp) = rec.main_wire;
                 kv_grid(ui, "rec", &[
-                    ("BMS", rec.bms.clone()),
+                    (
+                        "BMS",
+                        match &self.project.bms {
+                            Some(b) => format!("{} — zakładka BMS", b.name),
+                            None => format!("{} — wybierz model w zakładce BMS", rec.bms),
+                        },
+                    ),
                     ("Ładowarka", rec.charger.clone()),
                     ("Prąd ładowania (≈0,3C)", format!("{:.1} A", rec.charge_current_a)),
                     ("Bezpiecznik główny", format!("{:.0} A", rec.fuse_a)),
@@ -943,7 +976,7 @@ impl PakieciarkaApp {
 // ---------------------------------------------------------------------------
 // pomocnicze
 
-fn card(ui: &mut Ui, title: &str, add: impl FnOnce(&mut Ui)) {
+pub(crate) fn card(ui: &mut Ui, title: &str, add: impl FnOnce(&mut Ui)) {
     egui::Frame::group(ui.style()).inner_margin(10.0).show(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.strong(title);

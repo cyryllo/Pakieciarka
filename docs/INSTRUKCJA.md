@@ -12,14 +12,15 @@ sterowanej przez FluidNC / GRBL.
 4. [Kalkulator](#4-kalkulator)
 5. [Układ i połączenia](#5-układ-i-połączenia)
 6. [Druk PDF do ręcznego zgrzewania](#6-druk-pdf-do-ręcznego-zgrzewania)
-7. [Moduły — duże pakiety](#7-moduły--duże-pakiety)
-8. [G-code dla zgrzewarki](#8-g-code-dla-zgrzewarki)
-9. [Baza ogniw i własne ogniwa](#9-baza-ogniw-i-własne-ogniwa)
-10. [Moje projekty — zapisywanie i otwieranie](#10-moje-projekty--zapisywanie-i-otwieranie)
-11. [Skróty klawiszowe i opcje uruchomienia](#11-skróty-klawiszowe-i-opcje-uruchomienia)
-12. [Gdzie program trzyma dane](#12-gdzie-program-trzyma-dane)
-13. [Bezpieczeństwo i zastrzeżenia](#13-bezpieczeństwo-i-zastrzeżenia)
-14. [Najczęstsze pytania](#14-najczęstsze-pytania)
+7. [BMS — dobór i podłączenie](#7-bms--dobór-i-podłączenie)
+8. [Moduły — duże pakiety](#8-moduły--duże-pakiety)
+9. [G-code dla zgrzewarki](#9-g-code-dla-zgrzewarki)
+10. [Baza ogniw i własne ogniwa](#10-baza-ogniw-i-własne-ogniwa)
+11. [Moje projekty — zapisywanie i otwieranie](#11-moje-projekty--zapisywanie-i-otwieranie)
+12. [Skróty klawiszowe i opcje uruchomienia](#12-skróty-klawiszowe-i-opcje-uruchomienia)
+13. [Gdzie program trzyma dane](#13-gdzie-program-trzyma-dane)
+14. [Bezpieczeństwo i zastrzeżenia](#14-bezpieczeństwo-i-zastrzeżenia)
+15. [Najczęstsze pytania](#15-najczęstsze-pytania)
 
 ---
 
@@ -88,7 +89,7 @@ Szczegóły budowania są w [README](../README.md).
 Przy pierwszym uruchomieniu program pokazuje okno **„Ważne — przeczytaj przed użyciem”** z zastrzeżeniami
 (wyniki są orientacyjne, program jest bez gwarancji, korzystasz na własną odpowiedzialność). Pracę można zacząć
 po kliknięciu **Rozumiem i akceptuję**. Treść jest potem zawsze dostępna pod przyciskiem **ℹ** na górnym pasku —
-patrz [rozdział 13](#13-bezpieczeństwo-i-zastrzeżenia).
+patrz [rozdział 14](#14-bezpieczeństwo-i-zastrzeżenia).
 
 ---
 
@@ -107,6 +108,7 @@ Zakładki:
 
 - **📊 Kalkulator** — parametry elektryczne, obciążenie, mechanika, dobór osprzętu.
 - **🔀 Układ i połączenia** — rysunek pakietu z góry i z dołu, blaszki niklowe, odczepy balansera, druk PDF.
+- **🔌 BMS** — BMS-y pasujące do pakietu, schemat podłączenia i kolejność pinów balansera.
 - **🔗 Moduły** — łączenie gotowych modułów w duży pakiet.
 - **⚙ G-code** — program dla zgrzewarki CNC.
 - **📚 Baza ogniw** — wbudowane i własne ogniwa.
@@ -282,7 +284,52 @@ w wersji www plik jest pobierany.
 
 ---
 
-## 7. Moduły — duże pakiety
+## 7. BMS — dobór i podłączenie
+
+![BMS — pasujące modele](img/13-bms-lista.png)
+
+Na górze zakładki program podaje wymagania dla bieżącego pakietu: liczbę ogniw S, chemię, **prąd ciągły ≥ 1,25 ×
+prąd obciążenia** (zaokrąglony w górę do 5 A) i napięcie ładowania.
+
+**Pasujące BMS-y** — lista pokazuje **tylko** modele, które pasują do pakietu (zakres S, chemia, wariant prądu).
+Kolumna *Wariant* to najmniejszy dostępny wariant prądu spełniający wymaganie. Kolumna *Dane*:
+
+- **✔ sprawdzone** — Twój własny BMS z danymi z dokumentacji,
+- **⚠ do sprawdzenia** — dane wbudowane, orientacyjne (zebrane z opisów producentów i sprzedawców; najechanie
+  kursorem pokazuje uwagi). Rodziny w bazie: Daly (standard z portem wspólnym i osobnym, Smart), JBD SP17S / SP24S,
+  JK B1A8S / BD6A17S / B2A24S.
+
+> To pomoc w doborze, nie rekomendacja zakupowa. Warianty i oznaczenia BMS-ów często się zmieniają — zawsze sprawdź
+> kartę katalogową konkretnego egzemplarza.
+
+**Wybierz** ustawia BMS w projekcie (zapisuje się razem z projektem) i pokazuje pod listą:
+
+- **schemat podłączenia** — pakiet z grupami G1…GS i odczepami B0…BS, przewody balansera do pinów wtyczki,
+  gruby przewód **B−** do minusa pakietu, **P−** (port wspólny) albo **P−** i **C−** (port osobny) do odbiornika
+  i ładowarki, plus pakietu przez **bezpiecznik** prosto do odbiornika i ładowarki (BMS nie przerywa plusa),
+  czujnik(i) **NTC**;
+- **wtyczkę balansera** — tabela: pin, odczep, strona pakietu, na której jest blaszka, napięcie nominalne
+  i po naładowaniu;
+- **kolejność podłączania** krok po kroku — z pomiarem miernikiem przed wpięciem wtyczki.
+
+![Schemat podłączenia BMS z portem osobnym (P− i C−)](img/14-bms-schemat.png)
+
+> Kolejność pinów we wtyczce balansera bywa **odwrócona** między modelami, a nawet egzemplarzami. Pomyłka niszczy BMS.
+> Zawsze zmierz napięcia na wtyczce (odłączonej od BMS) względem pinu B0 — mają rosnąć o napięcie jednego ogniwa
+> na każdy kolejny pin.
+
+**Moje BMS-y** — dodaj BMS, który faktycznie masz (**➕ Dodaj własny BMS** albo **📋 Skopiuj do moich i popraw**
+przy wybranym modelu z bazy). W oknie edycji: nazwa, producent, zakres S, chemia, prąd ciągły, balansowanie
+(pasywne / aktywne, prąd), port (wspólny / osobny), aplikacja, liczba NTC, **pin 1 wtyczki** (B0 albo B+), uwagi
+i znacznik „dane sprawdzone z dokumentacją”. Sekcja *Moje BMS-y* (zwinięta) pozwala edytować i usuwać własne
+BMS-y także wtedy, gdy nie pasują do otwartego pakietu. Import / eksport — pliki JSON.
+
+Gdy BMS jest wybrany, PDF ma dodatkową stronę **Podłączenie BMS** z tabelą pinów i listą kroków do odhaczania,
+a w Kalkulatorze wiersz *BMS* pokazuje wybrany model.
+
+---
+
+## 8. Moduły — duże pakiety
 
 ![Moduły — 2 × 2 moduły 7S3P = 14S6P](img/05-moduly.png)
 
@@ -306,7 +353,7 @@ wyświetla ostrzeżenie.
 
 ---
 
-## 8. G-code dla zgrzewarki
+## 9. G-code dla zgrzewarki
 
 ![G-code — ustawienia, podgląd ścieżki i program](img/06-gcode.png)
 
@@ -400,7 +447,7 @@ M2
 
 ---
 
-## 9. Baza ogniw i własne ogniwa
+## 10. Baza ogniw i własne ogniwa
 
 ![Baza ogniw — własne i wbudowane](img/07-baza.png)
 
@@ -430,7 +477,7 @@ Import przyjmuje listę ogniw albo pojedyncze ogniwo w JSON; ogniwo o tej samej 
 
 ---
 
-## 10. Moje projekty — zapisywanie i otwieranie
+## 11. Moje projekty — zapisywanie i otwieranie
 
 Menu **📁 Projekt**:
 
@@ -458,7 +505,7 @@ Plik `.json` można też otworzyć z menedżera plików („Otwórz za pomocą �
 
 ---
 
-## 11. Skróty klawiszowe i opcje uruchomienia
+## 12. Skróty klawiszowe i opcje uruchomienia
 
 | Skrót | Działanie |
 |---|---|
@@ -471,18 +518,19 @@ Opcje wiersza poleceń (wersja natywna):
 | Opcja | Działanie |
 |---|---|
 | `plik.json` | importuje projekt z pliku |
-| `--tab kalk\|uklad\|moduly\|gcode\|baza\|projekty` | otwiera wybraną zakładkę (lub okno projektów) |
+| `--tab kalk\|uklad\|bms\|moduly\|gcode\|baza\|projekty` | otwiera wybraną zakładkę (lub okno projektów) |
 | `--projekt <id>` | otwiera projekt z biblioteki (id = nazwa pliku w katalogu projektów, bez `.json`) |
 | `--rozmiar 1500x950` | rozmiar okna |
 
 ---
 
-## 12. Gdzie program trzyma dane
+## 13. Gdzie program trzyma dane
 
 | Dane | Linux | macOS | Przeglądarka |
 |---|---|---|---|
 | Projekty | `~/.local/share/pakieciarka/projects/*.json` | `~/Library/Application Support/pakieciarka/projects/*.json` | localStorage |
 | Własne ogniwa | `~/.local/share/pakieciarka/cells.json` | `~/Library/Application Support/pakieciarka/cells.json` | localStorage |
+| Własne BMS-y | `~/.local/share/pakieciarka/bms.json` | `~/Library/Application Support/pakieciarka/bms.json` | localStorage |
 | Bieżący stan pracy i ustawienia widoku | `~/.local/share/pakieciarka/app.ron` | `~/Library/Application Support/pakieciarka/app.ron` | localStorage |
 
 Projekty to zwykłe pliki JSON — kopia zapasowa to skopiowanie katalogu danych (tabela powyżej).
@@ -490,7 +538,7 @@ Jeśli ustawiona jest zmienna `XDG_DATA_HOME`, katalog jest w `$XDG_DATA_HOME/pa
 
 ---
 
-## 13. Bezpieczeństwo i zastrzeżenia
+## 14. Bezpieczeństwo i zastrzeżenia
 
 - Ogniwa litowe zwarte niklem lub narzędziem mogą się zapalić. Pracuj na niepalnym podłożu, miej pod ręką koc
   gaśniczy / piasek, izoluj bieguny, których akurat nie zgrzewasz.
@@ -526,7 +574,7 @@ stanu, w stopce PDF i w nagłówku G-code.
 
 ---
 
-## 14. Najczęstsze pytania
+## 15. Najczęstsze pytania
 
 **Wydruk ma złą skalę.** Drukuj w 100% („rozmiar rzeczywisty”), bez dopasowania do strony, i sprawdź linijkę 50 mm.
 

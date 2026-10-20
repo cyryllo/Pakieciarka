@@ -3,6 +3,7 @@
 //! w przeglądarce `localStorage`.
 
 use crate::app::Project;
+use pakiet_core::bms::Bms;
 use pakiet_core::cells::Cell;
 use serde::{Deserialize, Serialize};
 
@@ -123,6 +124,19 @@ mod backend {
         let json = serde_json::to_string_pretty(cells).map_err(|e| e.to_string())?;
         std::fs::write(data_dir().join("cells.json"), json).map_err(|e| e.to_string())
     }
+
+    pub fn load_bms() -> Vec<Bms> {
+        std::fs::read_to_string(data_dir().join("bms.json"))
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save_bms(list: &[Bms]) -> Result<(), String> {
+        std::fs::create_dir_all(data_dir()).map_err(|e| e.to_string())?;
+        let json = serde_json::to_string_pretty(list).map_err(|e| e.to_string())?;
+        std::fs::write(data_dir().join("bms.json"), json).map_err(|e| e.to_string())
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -179,9 +193,24 @@ mod backend {
         let json = serde_json::to_string(cells).map_err(|e| e.to_string())?;
         storage()?.set_item(CELLS, &json).map_err(|e| format!("{e:?}"))
     }
+
+    const BMS: &str = "pakieciarka.bms";
+
+    pub fn load_bms() -> Vec<Bms> {
+        storage()
+            .ok()
+            .and_then(|st| st.get_item(BMS).ok().flatten())
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save_bms(list: &[Bms]) -> Result<(), String> {
+        let json = serde_json::to_string(list).map_err(|e| e.to_string())?;
+        storage()?.set_item(BMS, &json).map_err(|e| format!("{e:?}"))
+    }
 }
 
-pub use backend::{cells_location, delete_project, list_projects, load_cells, location, save_cells, save_project};
+pub use backend::{cells_location, delete_project, list_projects, load_bms, load_cells, location, save_bms, save_cells, save_project};
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {

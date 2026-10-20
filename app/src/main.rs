@@ -1,4 +1,5 @@
 mod app;
+mod bms_ui;
 mod draw;
 mod library;
 mod pdf;

@@ -419,6 +419,9 @@ pub fn layout_pdf(project: &Project, layout: &Layout, opts: &PdfOptions) -> Vec<
 
     // --- strona: dane i lista kontrolna
     info_pages(&mut d, project, layout);
+    if let Some(b) = &project.bms {
+        bms_page(&mut d, project, layout, b);
+    }
 
     // nagłówki
     let n = d.pages.len();
@@ -580,6 +583,95 @@ fn info_pages(d: &mut Doc, project: &Project, layout: &Layout) {
     }
 }
 
+fn bms_page(d: &mut Doc, project: &Project, layout: &Layout, b: &pakiet_core::bms::Bms) {
+    use pakiet_core::bms::{balance_pins, match_bms, required_current, wiring_steps};
+    let cell = &project.cell;
+    let s = project.s;
+    d.page();
+    d.text(MARGIN, 32.0, &format!("Podłączenie BMS — {}", b.name), 11.0, BLACK, Align::Left, true);
+    let mut y = 39.0;
+    let info = format!(
+        "{} · {} · {} · prąd ciągły {} · balansowanie {} · port {} · NTC: {}",
+        if b.manufacturer.is_empty() { "—" } else { &b.manufacturer },
+        b.s_label(),
+        b.chem_label(),
+        b.currents_label(),
+        b.balance_label(),
+        b.port.label(),
+        b.ntc
+    );
+    for line in d.wrap(&info, 8.0, PAGE_W - 2.0 * MARGIN) {
+        d.text(MARGIN, y, &line, 8.0, BLACK, Align::Left, false);
+        y += 4.0;
+    }
+    let m = match_bms(b, s, cell.chemistry, required_current(project.load_a));
+    for p in &m.problems {
+        d.text(MARGIN, y, &format!("Nie pasuje do pakietu: {p}"), 8.0, POS, Align::Left, true);
+        y += 4.0;
+    }
+    if !b.verified {
+        d.text(
+            MARGIN,
+            y,
+            "Dane orientacyjne — kolejność pinów i parametry sprawdź w dokumentacji swojego egzemplarza i miernikiem.",
+            8.0,
+            [0.75, 0.45, 0.0],
+            Align::Left,
+            true,
+        );
+        y += 4.0;
+    }
+
+    // tabela pinów (lewa kolumna), kroki (prawa)
+    let top = y + 4.0;
+    let mut y = top;
+    d.text(MARGIN, y, "Wtyczka balansera", 9.0, BLACK, Align::Left, true);
+    y += 5.0;
+    let cols = [0.0, 12.0, 34.0, 50.0, 72.0];
+    for (i, h) in ["Pin", "Odczep", "Blaszka", "Nominalnie", "Naładowany"].iter().enumerate() {
+        d.text(MARGIN + cols[i], y, h, 7.5, GRAY, Align::Left, true);
+    }
+    y += 4.0;
+    for (pin, tap) in balance_pins(b, s) {
+        if y > PAGE_H - 10.0 {
+            break;
+        }
+        let name = match tap {
+            0 => "B0 (B−)".to_string(),
+            t if t == s => format!("B{t} (B+)"),
+            t => format!("B{t}"),
+        };
+        let side = layout.plates.iter().find(|p| p.tap == tap).map(|p| p.side.label()).unwrap_or("—");
+        for (i, v) in [
+            pin.to_string(),
+            name,
+            side.to_string(),
+            format!("{:.1} V", tap as f64 * cell.nominal_v),
+            format!("{:.2} V", tap as f64 * cell.max_v),
+        ]
+        .iter()
+        .enumerate()
+        {
+            d.text(MARGIN + cols[i], y, v, 7.5, BLACK, Align::Left, false);
+        }
+        y += 3.6;
+    }
+
+    let x = MARGIN + 105.0;
+    let w = PAGE_W - MARGIN - x;
+    let mut y = top;
+    d.text(x, y, "Kolejność podłączania", 9.0, BLACK, Align::Left, true);
+    y += 5.0;
+    for (i, step) in wiring_steps(b, s, cell.nominal_v).iter().enumerate() {
+        d.checkbox(x, y, 2.8);
+        for line in d.wrap(&format!("{}. {step}", i + 1), 7.5, w - 6.0) {
+            d.text(x + 5.0, y, &line, 7.5, BLACK, Align::Left, false);
+            y += 3.6;
+        }
+        y += 1.0;
+    }
+}
+
 fn deflate(data: &[u8]) -> Vec<u8> {
     miniz_oxide::deflate::compress_to_vec_zlib(data, 6)
 }
@@ -685,6 +777,9 @@ mod tests {
             let big = Project { s: 14, p: 10, ..Project::default() };
             let l = build_layout(big.s, big.p, big.cell.diameter_mm, &big.layout);
             std::fs::write(dir.join("14s10p.pdf"), layout_pdf(&big, &l, &PdfOptions { numbers: true, labels: true, spots: false })).unwrap();
+            let with_bms = Project { bms: pakiet_core::bms::builtin_bms().into_iter().next(), ..Project::default() };
+            let l = build_layout(with_bms.s, with_bms.p, with_bms.cell.diameter_mm, &with_bms.layout);
+            std::fs::write(dir.join("bms.pdf"), layout_pdf(&with_bms, &l, &PdfOptions { numbers: true, labels: true, spots: false })).unwrap();
         }
     }
 }
